@@ -77,7 +77,7 @@ class resolver:
             path = uri_to_os_path(uri, attemptAbsolute=False)
             try:
                 stream = open(path, 'rb')
-            except IOError, e:
+            except IOError as e:
                 raise IriError(IriError.RESOURCE_ERROR,
                                    loc='%s (%s)' % (uri, path),
                                    uri=uri, msg=str(e))
@@ -94,7 +94,7 @@ class resolver:
             # data and gopher
             try:
                 stream = urllib2.urlopen(req)
-            except IOError, e:
+            except IOError as e:
                 raise IriError(IriError.RESOURCE_ERROR,
                                    uri=uri, loc=uri, msg=str(e))
         return stream

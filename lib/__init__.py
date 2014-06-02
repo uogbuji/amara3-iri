@@ -3,7 +3,7 @@
 import gettext
 gettext.install('amara3')
 
-from version import version_info
+from .version import version_info
 __version__ = '.'.join(version_info)
 
 class IriError(Exception):

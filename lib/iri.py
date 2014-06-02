@@ -3,7 +3,7 @@
 """
 Classes and functions related to IRI/URI processing, validation, resolution, etc.
 
-Copyright 2008-2009 Uche Ogbuji
+Copyright 2008-2014 Mike Brown and Uche Ogbuji
 """
 
 __all__ = [
@@ -33,14 +33,14 @@ __all__ = [
 ]
 
 import os, sys
-import urllib, urllib2
-import re, cStringIO
-import mimetools
+import urllib, urllib.request
+import re, io
+import email
 from string import ascii_letters
-from email.Utils import formatdate as _formatdate
+from email.utils import formatdate as _formatdate
 from uuid import UUID, uuid1, uuid4
 
-from amara.lib import IriError, importutil
+from amara3 import importutil
 
 # whether os_path_to_uri should treat "/" same as "\" in a Windows path
 WINDOWS_SLASH_COMPAT = True
@@ -56,10 +56,10 @@ def iri_to_uri(iri, convertHost=False):
     The convertHost flag indicates whether to perform conversion of
     the ireg-name (host) component of the IRI to an RFC 2396-compatible
     URI reg-name (IDNA encoded), e.g.
-    iri_to_uri(u'http://r\xe9sum\xe9.example.org/', convertHost=False)
-    => u'http://r%C3%A9sum%C3%A9.example.org/'
-    iri_to_uri(u'http://r\xe9sum\xe9.example.org/', convertHost=True)
-    => u'http://xn--rsum-bpad.example.org/'
+    iri_to_uri('http://r\xe9sum\xe9.example.org/', convertHost=False)
+    => 'http://r%C3%A9sum%C3%A9.example.org/'
+    iri_to_uri('http://r\xe9sum\xe9.example.org/', convertHost=True)
+    => 'http://xn--rsum-bpad.example.org/'
 
     Ordinarily, the IRI should be given as a unicode string. If the IRI
     is instead given as a byte string, then it will be assumed to be
@@ -69,30 +69,29 @@ def iri_to_uri(iri, convertHost=False):
     if not isinstance(iri, str):
         iri = nfc_normalize(iri)
 
-    if convertHost and sys.version_info[0:2] >= (2,3):
-        # first we have to get the host
-        (scheme, auth, path, query, frag) = split_uri_ref(iri)
-        if auth and auth.find('@') > -1:
-            userinfo, hostport = auth.split('@')
-        else:
-            userinfo = None
-            hostport = auth
-        if hostport and hostport.find(':') > -1:
-            host, port = hostport.split(':')
-        else:
-            host = hostport
-            port = None
-        if host:
-            host = convert_ireg_name(host)
-            auth = ''
-            if userinfo:
-                auth += userinfo + '@'
-            auth += host
-            if port:
-                auth += ':' + port
-        iri = unsplit_uri_ref((scheme, auth, path, query, frag))
+    # first we have to get the host
+    (scheme, auth, path, query, frag) = split_uri_ref(iri)
+    if auth and auth.find('@') > -1:
+        userinfo, hostport = auth.split('@')
+    else:
+        userinfo = None
+        hostport = auth
+    if hostport and hostport.find(':') > -1:
+        host, port = hostport.split(':')
+    else:
+        host = hostport
+        port = None
+    if host:
+        host = convert_ireg_name(host)
+        auth = ''
+        if userinfo:
+            auth += userinfo + '@'
+        auth += host
+        if port:
+            auth += ':' + port
+    iri = unsplit_uri_ref((scheme, auth, path, query, frag))
 
-    res = u''
+    res = ''
     pos = 0
     #FIXME: use re.subn with substitution function for big speed-up
     surrogate = None
@@ -101,7 +100,7 @@ def iri_to_uri(iri, convertHost=False):
         if cp > 128:
             if cp < 160:
                 # FIXME: i18n
-                raise ValueError("Illegal character at position %d (0-based) of IRI %r" % (pos, iri))
+                raise ValueError(_("Illegal character at position %d (0-based) of IRI %r" % (pos, iri)))
             # 'for c in iri' may give us surrogate pairs
             elif cp > 55295:
                 if cp < 56320:
@@ -111,13 +110,13 @@ def iri_to_uri(iri, convertHost=False):
                 elif cp < 57344:
                     # dc00-dfff
                     if surrogate is None:
-                        raise ValueError("Illegal surrogate pair in %r" % iri)
+                        raise ValueError(_("Illegal surrogate pair in %r" % iri))
                     c = surrogate + c
                 else:
-                    raise ValueError("Illegal surrogate pair in %r" % iri)
+                    raise ValueError(_("Illegal surrogate pair in %r" % iri))
                 surrogate = None
             for octet in c.encode('utf-8'):
-                res += u'%%%02X' % ord(octet)
+                res += '%%%02X' % ord(octet)
         else:
             res += c
         pos += 1
@@ -329,7 +328,7 @@ def unsplit_uri_ref(uriRefSeq):
     returns a URI reference as a string.
     """
     if not isinstance(uriRefSeq, (tuple, list)):
-        raise TypeError("sequence expected, got %s" % type(uriRefSeq))
+        raise TypeError(_("sequence expected, got %s" % type(uriRefSeq)))
     (scheme, authority, path, query, fragment) = uriRefSeq
     uri = ''
     if scheme is not None:
@@ -409,53 +408,6 @@ UNRESERVED_PATTERN = re.compile(r'[0-9A-Za-z\-\._~]') # RFC 3986
 #RESERVED = "/&=+?;@,:$[]" # RFC 2396 + RFC 2732
 RESERVED = "/=&+?#;@,:$!*[]()'" # RFC 3986
 
-# workaround for Py 2.2 bytecode issue; see
-# http://mail.python.org/pipermail/python-list/2005-March/269948.html
-SURR_DC00 = unichr(0xdc00)
-
-def _chars(s):
-    """
-    This generator function helps iterate over the characters in a
-    string. When the string is unicode and a surrogate pair is
-    encountered, the pair is returned together, regardless of whether
-    Python was built with 32-bit ('wide') or 16-bit code values for
-    its internal representation of unicode. This function will raise a
-    ValueError if it detects an illegal surrogate pair.
-
-    For example, given s = u'\ud800\udc00\U00010000',
-    with narrow-char unicode, "for c in s" normally iterates 4 times,
-    producing u'\ud800', u'\udc00', 'u\ud800', u'\udc00', while
-    "for c in _chars(s)" will iterate 2 times: producing
-    u'\ud800\udc00' both times; and with wide-char unicode,
-    "for c in s" iterates 3 times, producing u'\ud800', u'\udc00',
-    and u'\U00010000', while "for c in _chars(s)" will iterate 2 times,
-    producing u'\U00010000' both times.
-
-    With this function, the value yielded in each iteration is thus
-    guaranteed to represent a single abstract character, allowing for
-    ideal encoding by the built-in codecs, as is necessary when
-    percent-encoding.
-    """
-    if isinstance(s, str):
-        for i in s:
-            yield i
-        return
-    s = iter(s)
-    for i in s:
-        if u'\ud7ff' < i < SURR_DC00:
-            try:
-                j = s.next()
-            except StopIteration:
-                raise ValueError("Bad pair: string ends after %r" % i)
-            if SURR_DC00 <= j < u'\ue000':
-                yield i + j
-            else:
-                raise ValueError("Bad pair: %r (bad second half)" % (i+j))
-        elif SURR_DC00 <= i < u'\ue000':
-                raise ValueError("Bad pair: %r (no first half)" % i)
-        else:
-            yield i
-
 
 def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
                      nlChars=None, reservedChars=RESERVED):
@@ -481,15 +433,9 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
     Do this if the string is an already-assembled URI or a URI component,
     such as a complete path.
 
-    If the given string is Unicode, the name of the encoding given in the
-    encoding argument will be used to determine the percent-encoded octets
+    The encoding argument will be used to determine the percent-encoded octets
     for characters that are not in the U+0000 to U+007F range. The codec
     identified by the encoding argument must return a byte string.
-
-    If the given string is not Unicode, the encoding argument is ignored and
-    the string is interpreted to represent literal octets, rather than
-    characters. Octets above \\x7F will be percent-encoded as-is, e.g., \\xa0
-    becomes %A0, not, say, %C2%A0.
 
     The spaceToPlus flag controls whether space characters are changed to
     "+" characters in the result, rather than being percent-encoded.
@@ -507,18 +453,13 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
     Unicode-friendly. Suggestions for improvements welcome.
     """
     res = ''
-    is_unicode = isinstance(s, unicode)
     if nlChars is not None:
         for c in nlChars:
             s.replace(c, '\r\n')
     #FIXME: use re.subn with substitution function for big speed-up
-    for c in _chars(s):
+    for c in s:
         # surrogates? -> percent-encode according to given encoding
-        if is_unicode and len(c) - 1:
-            for octet in c.encode(encoding):
-                res += '%%%02X' % ord(octet)
-        # not unreserved?
-        elif UNRESERVED_PATTERN.match(c) is None:
+        if UNRESERVED_PATTERN.match(c) is None:
             cp = ord(c)
             # ASCII range?
             if cp < 128:
@@ -537,13 +478,9 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
                 else:
                     res += '%%%02X' % cp
             # non-ASCII-range unicode?
-            elif is_unicode:
+            else:
                 # percent-encode according to given encoding
                 for octet in c.encode(encoding):
-                    res += '%%%02X' % ord(octet)
-            # non-ASCII str; percent-encode the bytes
-            else:
-                for octet in c:
                     res += '%%%02X' % ord(octet)
 
         # unreserved -> safe to use as-is
@@ -557,22 +494,17 @@ def percent_decode(s, encoding='utf-8', decodable=None):
     [*** Experimental API ***] Reverses the percent-encoding of the given
     string.
 
-    This function is similar to urllib.unquote(), but can also process a
-    Unicode string, not just a regular byte string.
+    Similar to urllib.unquote()
 
     By default, all percent-encoded sequences are decoded, but if a byte
     string is given via the 'decodable' argument, only the sequences
     corresponding to those octets will be decoded.
 
-    If the string is Unicode, the percent-encoded sequences are converted to
+    The percent-encoded sequences are converted to
     bytes, then converted back to Unicode according to the encoding given in
-    the encoding argument. For example, by default, u'abc%E2%80%A2' will be
-    converted to u'abc\u2022', because byte sequence E2 80 A2 represents
+    the encoding argument. For example, by default, 'abc%E2%80%A2' will be
+    converted to 'abc\u2022', because byte sequence E2 80 A2 represents
     character U+2022 in UTF-8.
-
-    If the string is not Unicode, the percent-encoded octets are just
-    converted to bytes, and the encoding argument is ignored. For example,
-    'abc%E2%80%A2' will be converted to 'abc\xe2\x80\xa2'.
 
     This function is intended for use on the portions of a URI that are
     delimited by reserved characters (see percent_encode), or on a value from
@@ -580,12 +512,7 @@ def percent_decode(s, encoding='utf-8', decodable=None):
     """
     # Most of this comes from urllib.unquote().
     # urllib.unquote(), if given a unicode argument, does not decode
-    # percent-encoded octets above %7F.
-    is_unicode = isinstance(s, unicode)
-    if is_unicode:
-        mychr = unichr
-    else:
-        mychr = chr
+    # percent-encoded octets above %7F. [Still true in Python 3.3?]
     list_ = s.split('%')
     res = [list_[0]]
     myappend = res.append
@@ -593,11 +520,13 @@ def percent_decode(s, encoding='utf-8', decodable=None):
     for item in list_:
         if item[1:2]:
             try:
-                c = mychr(int(item[:2], 16))
+                c = chr(int(item[:2], 16))
                 if decodable is None:
                     myappend(c + item[2:])
-                elif c in decodable:
-                    myappend(c + item[2:])
+                #elif c in decodable:
+                #    myappend(c + item[2:])
+                #FIXME: We'll need to do our own surrogate pair decoding because:
+                #>>> '\ud800'.encode('utf-8') -> UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
                 else:
                     myappend('%' + item)
             except ValueError:
@@ -605,16 +534,15 @@ def percent_decode(s, encoding='utf-8', decodable=None):
         else:
             myappend('%' + item)
     s = ''.join(res)
-    # If the original input was unicode, then we assume it represented
-    # characters; e.g., u'%E2%80%A2' -> '\xe2\x80\xa2' -> u'\u2022'
-    # (assuming UTF-8 was the basis for percent-encoding). However,
+    # The original input must represent
+    # characters; e.g., '%E2%80%A2' -> '\xe2\x80\xa2' -> '\u2022'
+    # (assuming UTF-8 basis for percent-encoding). However,
     # at this point in the implementation, variable s would actually be
-    # u'\u00e2\u0080\u00a2', so we first convert it to bytes (via an
+    # '\u00e2\u0080\u00a2', so we first convert it to bytes (via an
     # iso-8859-1 encode) in order to get '\xe2\x80\xa2'. Then we decode back
-    # to unicode according to the desired encoding (UTF-8 by default) in
-    # order to produce u'\u2022'.
-    if is_unicode:
-        s = s.encode('iso-8859-1').decode(encoding)
+    # according to the desired encoding (UTF-8 by default) in
+    # order to produce '\u2022'.
+    s = s.encode('iso-8859-1').decode(encoding)
     return s
 
 
@@ -630,7 +558,7 @@ def absolutize(uriRef, baseUri, limit_schemes=None):
     Unexpected results may occur otherwise.
 
     This function only conducts a minimal sanity check in order to determine
-    if relative resolution is possible: it raises a IriError if the base
+    if relative resolution is possible: it raises a ValueError if the base
     URI does not have a scheme component. While it is true that the base URI
     is irrelevant if the URI reference has a scheme, an exception is raised
     in order to signal that the given string does not even come close to
@@ -677,11 +605,12 @@ def absolutize(uriRef, baseUri, limit_schemes=None):
     if is_absolute(uriRef):
         return uriRef
     if not baseUri or not is_absolute(baseUri):
-        raise IriError(IriError.RELATIVE_BASE_URI,
-                           base=baseUri, ref=uriRef)
+        raise ValueError("Invalid base URI: {base} cannot be used to resolve "
+                "reference {ref}; the base URI must be absolute, not "
+                "relative.".format(base=baseUri, ref=uriRef))
     if limit_schemes and get_scheme(baseUri) not in limit_schemes:
         scheme = get_scheme(baseUri)
-        raise IriError(IriError.UNSUPPORTED_SCHEME, scheme=scheme)
+        raise ValueError("The URI scheme {scheme} is not supported by resolver".format(scheme=scheme))
     
     # shortcut for the simplest same-document reference cases
     if uriRef == '' or uriRef[0] == '#':
@@ -993,7 +922,7 @@ def normalize_path_segments_in_uri(uri):
 
 
 _urlopener = None
-class _data_handler(urllib2.BaseHandler):
+class _data_handler(urllib.request.BaseHandler):
     """
     A class to handle 'data' URLs.
 
@@ -1026,7 +955,7 @@ def resource_to_uri(package, resource):
         uri = os_path_to_uri(filename)
     return uri
 
-class _pep302_handler(urllib2.FileHandler):
+class _pep302_handler(urllib.request.FileHandler):
     """
     A class to handler opening of PEP 302 pseudo-URLs.
 
@@ -1050,15 +979,15 @@ class _pep302_handler(urllib2.FileHandler):
         # get the stream associated with the resource
         try:
             stream = importutil.get_resource_stream(package, resource)
-        except EnvironmentError, error:
-            raise urllib2.URLError(str(error))
+        except EnvironmentError as error:
+            raise urllib.URLError(str(error))
 
         # compute some simple header fields
         try:
             stream.seek(0, 2) # go to the end of the stream
         except IOError:
             data = stream.read()
-            stream = cStringIO.StringIO(data)
+            stream = io.StringIO(data)
             length = len(data)
         else:
             length = stream.tell()
@@ -1069,20 +998,20 @@ class _pep302_handler(urllib2.FileHandler):
         headers = ("Content-Type: %s\n"
                    "Content-Length: %d\n"
                    "Last-Modified: %s\n" % (mtype, length, mtime))
-        headers = mimetools.Message(cStringIO.StringIO(headers))
+        headers = email.message_from_string(headers)
         return urllib.addinfourl(stream, headers, request.get_full_url())
 
 _opener = None
 def urlopen(url, *args, **kwargs):
     """
-    A replacement/wrapper for urllib2.urlopen().
+    A replacement/wrapper for urllib.request.urlopen(), formerly urllib2.urlopen() in Python 1 & 2.
 
     Simply calls make_urllib_safe() on the given URL and passes the result
-    and all other args to urllib2.urlopen().
+    and all other args to urllib.request.urlopen().
     """
     global _opener
     if _opener is None:
-        _opener = urllib2.build_opener(_data_handler, _pep302_handler)
+        _opener = urllib.request.build_opener(_data_handler, _pep302_handler)
 
     # work around urllib's intolerance for proper URIs, Unicode, IDNs
     stream = _opener.open(make_urllib_safe(url), *args, **kwargs)
@@ -1103,7 +1032,7 @@ def urn_to_public_id(urn):
     will be converted to the public identifier
     "+//IDN example.org//DTD XML Bookmarks 1.0//EN//XML"
 
-    Raises a IriError if the given URN cannot be converted.
+    Raises a ValueError if the given URN cannot be converted.
     Query and fragment components, if present, are ignored.
     """
     if urn is not None and urn:
@@ -1119,7 +1048,8 @@ def urn_to_public_id(urn):
                     publicid = percent_decode(publicid)
                     return publicid
 
-    raise IriError(IriError.INVALID_PUBLIC_ID_URN, urn=urn)
+    raise ValueError("A public ID cannot be derived from URN {urn} "
+                "because it does not conform to RFC 3151.".format(urn=urn))
 
 
 def public_id_to_urn(publicid):
@@ -1260,7 +1190,7 @@ def _splitNtPath(path):
         _initNtPathPattern()
     m = NT_PATH_PATTERN.match(path)
     if not m:
-        raise ValueError("Path %s is not a valid Windows path.")
+        raise ValueError("Path {path} is not a valid Windows path.".format(path=path))
     components = m.groupdict()
     (drive, host, share, abspath, relpath) = (
         components['drive'],
@@ -1414,10 +1344,10 @@ def os_path_to_uri(path, attemptAbsolute=True, osname=None):
         else:
             try:
                 module = '%surl2path' % osname
-                exec 'from %s import pathname2url' % module
+                exec('from %s import pathname2url' % module, globals(), locals())
             except ImportError:
-                raise IriError(IriError.UNSUPPORTED_PLATFORM,
-                                   osname, os_path_to_uri)
+                raise RuntimeError("Platform {platform} not supported by URI function "
+                "{function}".format(platform=osname, function="os_path_to_uri"))
         uri = 'file:' + pathname2url(path)
 
     return uri
@@ -1433,7 +1363,7 @@ def uri_to_os_path(uri, attemptAbsolute=True, encoding='utf-8', osname=None):
     byte string, the encoding argument is ignored and the result will be a
     byte string in which percent-encoded octets have been converted to the
     bytes they represent. For example, the trailing path segment of
-    u'file:///a/b/%E2%80%A2' will by default be converted to u'\u2022',
+    'file:///a/b/%E2%80%A2' will by default be converted to '\u2022',
     because sequence E2 80 A2 represents character U+2022 in UTF-8. If the
     string were not Unicode, the trailing segment would become the 3-byte
     string '\xe2\x80\xa2'.
@@ -1501,7 +1431,8 @@ def uri_to_os_path(uri, attemptAbsolute=True, encoding='utf-8', osname=None):
     """
     (scheme, authority, path) = split_uri_ref(uri)[0:3]
     if scheme and scheme != 'file':
-        raise IriError(IriError.NON_FILE_URI, uri=uri)
+        raise ValueError("Only a 'file' URI can be converted to an OS-specific path; "
+                "URI given was {uri}".format(uri=uri))
     # enforce 'localhost' URI equivalence mandated by RFCs 1630, 1738, 3986
     if authority == 'localhost':
         authority = None
@@ -1575,7 +1506,8 @@ def uri_to_os_path(uri, attemptAbsolute=True, encoding='utf-8', osname=None):
     elif osname == 'posix':
         # a non-empty, non-'localhost' authority component is ambiguous on Unix
         if authority:
-            raise IriError(IriError.UNIX_REMOTE_HOST_FILE_URI, uri=uri)
+            raise ValueError("A URI containing a remote host name cannot be converted to a "
+                " path on posix; URI given was {uri}".format(uri=uri))
         # %2F in a path segment would indicate a literal '/' in a
         # filename, which is possible on posix, but there is no
         # way to consistently represent it. We'll backslash-escape
@@ -1596,10 +1528,10 @@ def uri_to_os_path(uri, attemptAbsolute=True, encoding='utf-8', osname=None):
         else:
             try:
                 module = '%surl2path' % osname
-                exec 'from %s import url2pathname' % module
+                exec('from %s import url2pathname' % module, globals(), locals())
             except ImportError:
-                raise IriError(IriError.UNSUPPORTED_PLATFORM,
-                               platform=osname, function=uri_to_os_path)
+                raise RuntimeError("Platform {platform} not supported by URI function "
+                "{function}".format(platform=osname, function="uri_to_os_path"))
         # drop the scheme before passing to url2pathname
         if scheme:
             uri = uri[len(scheme)+1:]
@@ -1677,7 +1609,8 @@ def make_urllib_safe(uriRef):
             # should work if IDNA encoding was applied (Py 2.3+)
             uri = uri.encode('us-ascii')
         except UnicodeError:
-            raise IriError(IriError.IDNA_UNSUPPORTED, uri=uriRef)
+            raise RuntimeError("The URI ref {uri} cannot be made urllib-safe on this "
+                "version of Python (IDNA encoding unsupported).".format(uri=uriRef))
     return uri
 
 
