@@ -1,6 +1,7 @@
+import pytest
 import os, unittest, sys, codecs
 import warnings
-from amara.lib import iri, irihelpers, inputsource
+from amara3 import iri, irihelpers, inputsource
 from amara.test.lib import find_file
 
 # Test cases for BaseJoin() ==================================================
@@ -454,7 +455,7 @@ file_uris = [
     ('file:///C:%5Cx%5Cy%5Cz', r'C:\x\y\z', r'/C:\x\y\z'),
     ('file:///C:%2Fx%2Fy%2Fz', r'C:\x\y\z', r'/C:\/x\/y\/z'),
     ('file:///water%3D%E6%B0%B4', '\\water=\xe6\xb0\xb4', '/water=\xe6\xb0\xb4'),
-    (u'file:///water%3D%E6%B0%B4', u'\\water=\u6c34', u'/water=\u6c34'),
+    ('file:///water%3D%E6%B0%B4', '\\water=\u6c34', '/water=\u6c34'),
     ]
 
 # Test cases for OsPathToUri =================================================
@@ -505,8 +506,8 @@ file_paths += [
     ('a!;b?c#d^e()', 'file:a%21%3Bb%3Fc%23d%5Ee%28%29',
      'file:a%21%3Bb%3Fc%23d%5Ee%28%29'),
     # non-ASCII characters in path
-    (u'98.6\xb0F', 'file:98.6%C2%B0F',       'file:98.6%C2%B0F'),
-    (u'water=\u6c34', 'file:water%3D%E6%B0%B4', 'file:water%3D%E6%B0%B4'),
+    ('98.6\xb0F', 'file:98.6%C2%B0F',       'file:98.6%C2%B0F'),
+    ('water=\u6c34', 'file:water%3D%E6%B0%B4', 'file:water%3D%E6%B0%B4'),
     # UNC path
     (r'\\h\s\x\y\z', 'file://h/s/x/y/z',     'file:%5C%5Ch%5Cs%5Cx%5Cy%5Cz'),
     (r'\\h\$c$\x\y\z', 'file://h/%24c%24/x/y/z',
@@ -584,36 +585,36 @@ make_urllib_safe_tests = [
      '--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.xn--n8jaaaa'
      'ai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.w3.mag.keio.ac.jp/'), #122
     # Unicode versions of above
-    (u'http://www.w%33.org', u'http://www.w3.org'), # 101
-    (u'http://r%C3%A4ksm%C3%B6rg%C3%A5s.josefsson.org', u'http://xn--rksmrgs-5wao1o.josefsson.org'), # 111
-    (u'http://%E7%B4%8D%E8%B1%86.w3.mag.keio.ac.jp', u'http://xn--99zt52a.w3.mag.keio.ac.jp'), # 112
-    (u'http://www.%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81'
-     u'%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81'
-     u'%AA%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81'
-     u'%AE%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81'
-     u'%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81'
-     u'%84.w3.mag.keio.ac.jp/',
-     u'http://www.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lr'
-     u'a.w3.mag.keio.ac.jp/'), # 121
-    (u'http://%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C'
-     u'%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA'
-     u'%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE'
-     u'%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F'
-     u'%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84'
-     u'.%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81'
-     u'%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81'
-     u'%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE%E3%82'
-     u'%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F%E3%81'
-     u'%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84.%E3'
-     u'%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81%84%E3'
-     u'%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81%84%E3'
-     u'%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE%E3%82%89%E3'
-     u'%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3'
-     u'%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84.w3.mag.keio'
-     u'.ac.jp/',
-     u'http://xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.xn'
-     u'--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.xn--n8jaaaa'
-     u'ai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.w3.mag.keio.ac.jp/'), #122
+    ('http://www.w%33.org', 'http://www.w3.org'), # 101
+    ('http://r%C3%A4ksm%C3%B6rg%C3%A5s.josefsson.org', 'http://xn--rksmrgs-5wao1o.josefsson.org'), # 111
+    ('http://%E7%B4%8D%E8%B1%86.w3.mag.keio.ac.jp', 'http://xn--99zt52a.w3.mag.keio.ac.jp'), # 112
+    ('http://www.%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81'
+     '%8C%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81'
+     '%AA%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81'
+     '%AE%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81'
+     '%8F%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81'
+     '%84.w3.mag.keio.ac.jp/',
+     'http://www.xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lr'
+     'a.w3.mag.keio.ac.jp/'), # 121
+    ('http://%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C'
+     '%E3%81%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA'
+     '%E3%81%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE'
+     '%E3%82%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F'
+     '%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84'
+     '.%E3%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81'
+     '%84%E3%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81'
+     '%84%E3%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE%E3%82'
+     '%89%E3%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F%E3%81'
+     '%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84.%E3'
+     '%81%BB%E3%82%93%E3%81%A8%E3%81%86%E3%81%AB%E3%81%AA%E3%81%8C%E3%81%84%E3'
+     '%82%8F%E3%81%91%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%89%E3%81%AA%E3%81%84%E3'
+     '%81%A9%E3%82%81%E3%81%84%E3%82%93%E3%82%81%E3%81%84%E3%81%AE%E3%82%89%E3'
+     '%81%B9%E3%82%8B%E3%81%BE%E3%81%A0%E3%81%AA%E3%81%8C%E3%81%8F%E3%81%97%E3'
+     '%81%AA%E3%81%84%E3%81%A8%E3%81%9F%E3%82%8A%E3%81%AA%E3%81%84.w3.mag.keio'
+     '.ac.jp/',
+     'http://xn--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.xn'
+     '--n8jaaaaai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.xn--n8jaaaa'
+     'ai5bhf7as8fsfk3jnknefdde3fg11amb5gzdb4wi9bya3kc6lra.w3.mag.keio.ac.jp/'), #122
     ]
 
 win_make_urllib_safe_tests = [
@@ -651,22 +652,22 @@ public_id_tests = [
 percent_encode_tests = [
     # Empty string
     ('', ''),
-    (u'', u''),
+    ('', ''),
     # The unreserved set: the only characters that don't need to be
     # percent-encoded (it's OK to percent-encode them, though, as it
     # will still produce an equivalent URI). We expect that they won't
     # be percent-encoded.
     ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~',
      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'),
-    (u'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~',
-     u'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'),
+    ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~',
+     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'),
     # The reserved set: characters that need to be percent-encoded when they
     # are not being used for their reserved purpose. We expect that they
     # will all be percent-encoded.
     (":/?#[]@!$&'()*+,;=",
      '%3A%2F%3F%23%5B%5D%40%21%24%26%27%28%29%2A%2B%2C%3B%3D'),
-    (u":/?#[]@!$&'()*+,;=",
-     u'%3A%2F%3F%23%5B%5D%40%21%24%26%27%28%29%2A%2B%2C%3B%3D'),
+    (":/?#[]@!$&'()*+,;=",
+     '%3A%2F%3F%23%5B%5D%40%21%24%26%27%28%29%2A%2B%2C%3B%3D'),
     # Disallowed characters: characters not in the reserved or unreserved
     # sets; these must be converted to percent-encoded octets, always.
     # Basically this is all of Unicode, which would be impractical to test.
@@ -675,17 +676,17 @@ percent_encode_tests = [
     #   1. the rest of printable ASCII
     (' %^{}|\\"<>`',
      '%20%25%5E%7B%7D%7C%5C%22%3C%3E%60'),
-    (u' %^{}|\\"<>`',
-     u'%20%25%5E%7B%7D%7C%5C%22%3C%3E%60'),
+    (' %^{}|\\"<>`',
+     '%20%25%5E%7B%7D%7C%5C%22%3C%3E%60'),
     #   2. the ASCII / C0 control set
-    (''.join(map(chr, xrange(32))) + '\x7f',
+    (''.join(map(chr, range(32))) + '\x7f',
      '%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F' \
      '%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F%7F'),
-    (u''.join(map(unichr, xrange(32))) + u'\x7f',
-     u'%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F' \
-     u'%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F%7F'),
+    (''.join(map(chr, range(32))) + '\x7f',
+     '%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F' \
+     '%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F%7F'),
     #   3. non-ASCII (ISO-8859-* range)
-    (''.join(map(chr, xrange(128, 256))),
+    (''.join(map(chr, range(128, 256))),
      '%80%81%82%83%84%85%86%87%88%89%8A%8B%8C%8D%8E%8F' \
      '%90%91%92%93%94%95%96%97%98%99%9A%9B%9C%9D%9E%9F' \
      '%A0%A1%A2%A3%A4%A5%A6%A7%A8%A9%AA%AB%AC%AD%AE%AF' \
@@ -694,96 +695,110 @@ percent_encode_tests = [
      '%D0%D1%D2%D3%D4%D5%D6%D7%D8%D9%DA%DB%DC%DD%DE%DF' \
      '%E0%E1%E2%E3%E4%E5%E6%E7%E8%E9%EA%EB%EC%ED%EE%EF' \
      '%F0%F1%F2%F3%F4%F5%F6%F7%F8%F9%FA%FB%FC%FD%FE%FF'),
-    (u''.join(map(unichr, xrange(128, 256))),
-     u'%C2%80%C2%81%C2%82%C2%83%C2%84%C2%85%C2%86%C2%87' \
-     u'%C2%88%C2%89%C2%8A%C2%8B%C2%8C%C2%8D%C2%8E%C2%8F' \
-     u'%C2%90%C2%91%C2%92%C2%93%C2%94%C2%95%C2%96%C2%97' \
-     u'%C2%98%C2%99%C2%9A%C2%9B%C2%9C%C2%9D%C2%9E%C2%9F' \
-     u'%C2%A0%C2%A1%C2%A2%C2%A3%C2%A4%C2%A5%C2%A6%C2%A7' \
-     u'%C2%A8%C2%A9%C2%AA%C2%AB%C2%AC%C2%AD%C2%AE%C2%AF' \
-     u'%C2%B0%C2%B1%C2%B2%C2%B3%C2%B4%C2%B5%C2%B6%C2%B7' \
-     u'%C2%B8%C2%B9%C2%BA%C2%BB%C2%BC%C2%BD%C2%BE%C2%BF' \
-     u'%C3%80%C3%81%C3%82%C3%83%C3%84%C3%85%C3%86%C3%87' \
-     u'%C3%88%C3%89%C3%8A%C3%8B%C3%8C%C3%8D%C3%8E%C3%8F' \
-     u'%C3%90%C3%91%C3%92%C3%93%C3%94%C3%95%C3%96%C3%97' \
-     u'%C3%98%C3%99%C3%9A%C3%9B%C3%9C%C3%9D%C3%9E%C3%9F' \
-     u'%C3%A0%C3%A1%C3%A2%C3%A3%C3%A4%C3%A5%C3%A6%C3%A7' \
-     u'%C3%A8%C3%A9%C3%AA%C3%AB%C3%AC%C3%AD%C3%AE%C3%AF' \
-     u'%C3%B0%C3%B1%C3%B2%C3%B3%C3%B4%C3%B5%C3%B6%C3%B7' \
-     u'%C3%B8%C3%B9%C3%BA%C3%BB%C3%BC%C3%BD%C3%BE%C3%BF'),
+    (''.join(map(chr, range(128, 256))),
+     '%C2%80%C2%81%C2%82%C2%83%C2%84%C2%85%C2%86%C2%87' \
+     '%C2%88%C2%89%C2%8A%C2%8B%C2%8C%C2%8D%C2%8E%C2%8F' \
+     '%C2%90%C2%91%C2%92%C2%93%C2%94%C2%95%C2%96%C2%97' \
+     '%C2%98%C2%99%C2%9A%C2%9B%C2%9C%C2%9D%C2%9E%C2%9F' \
+     '%C2%A0%C2%A1%C2%A2%C2%A3%C2%A4%C2%A5%C2%A6%C2%A7' \
+     '%C2%A8%C2%A9%C2%AA%C2%AB%C2%AC%C2%AD%C2%AE%C2%AF' \
+     '%C2%B0%C2%B1%C2%B2%C2%B3%C2%B4%C2%B5%C2%B6%C2%B7' \
+     '%C2%B8%C2%B9%C2%BA%C2%BB%C2%BC%C2%BD%C2%BE%C2%BF' \
+     '%C3%80%C3%81%C3%82%C3%83%C3%84%C3%85%C3%86%C3%87' \
+     '%C3%88%C3%89%C3%8A%C3%8B%C3%8C%C3%8D%C3%8E%C3%8F' \
+     '%C3%90%C3%91%C3%92%C3%93%C3%94%C3%95%C3%96%C3%97' \
+     '%C3%98%C3%99%C3%9A%C3%9B%C3%9C%C3%9D%C3%9E%C3%9F' \
+     '%C3%A0%C3%A1%C3%A2%C3%A3%C3%A4%C3%A5%C3%A6%C3%A7' \
+     '%C3%A8%C3%A9%C3%AA%C3%AB%C3%AC%C3%AD%C3%AE%C3%AF' \
+     '%C3%B0%C3%B1%C3%B2%C3%B3%C3%B4%C3%B5%C3%B6%C3%B7' \
+     '%C3%B8%C3%B9%C3%BA%C3%BB%C3%BC%C3%BD%C3%BE%C3%BF'),
     #   4. U+0100 to low surrogate range, in big steps
-    (u''.join(map(unichr, xrange(256, 55296, 1024))) + u'\ud7ff',
-     u'%C4%80%D4%80%E0%A4%80%E0%B4%80%E1%84%80%E1%94%80' \
-     u'%E1%A4%80%E1%B4%80%E2%84%80%E2%94%80%E2%A4%80%E2' \
-     u'%B4%80%E3%84%80%E3%94%80%E3%A4%80%E3%B4%80%E4%84' \
-     u'%80%E4%94%80%E4%A4%80%E4%B4%80%E5%84%80%E5%94%80' \
-     u'%E5%A4%80%E5%B4%80%E6%84%80%E6%94%80%E6%A4%80%E6' \
-     u'%B4%80%E7%84%80%E7%94%80%E7%A4%80%E7%B4%80%E8%84' \
-     u'%80%E8%94%80%E8%A4%80%E8%B4%80%E9%84%80%E9%94%80' \
-     u'%E9%A4%80%E9%B4%80%EA%84%80%EA%94%80%EA%A4%80%EA' \
-     u'%B4%80%EB%84%80%EB%94%80%EB%A4%80%EB%B4%80%EC%84' \
-     u'%80%EC%94%80%EC%A4%80%EC%B4%80%ED%84%80%ED%94%80%ED%9F%BF'),
+    (''.join(map(chr, range(256, 55296, 1024))) + '\ud7ff',
+     '%C4%80%D4%80%E0%A4%80%E0%B4%80%E1%84%80%E1%94%80' \
+     '%E1%A4%80%E1%B4%80%E2%84%80%E2%94%80%E2%A4%80%E2' \
+     '%B4%80%E3%84%80%E3%94%80%E3%A4%80%E3%B4%80%E4%84' \
+     '%80%E4%94%80%E4%A4%80%E4%B4%80%E5%84%80%E5%94%80' \
+     '%E5%A4%80%E5%B4%80%E6%84%80%E6%94%80%E6%A4%80%E6' \
+     '%B4%80%E7%84%80%E7%94%80%E7%A4%80%E7%B4%80%E8%84' \
+     '%80%E8%94%80%E8%A4%80%E8%B4%80%E9%84%80%E9%94%80' \
+     '%E9%A4%80%E9%B4%80%EA%84%80%EA%94%80%EA%A4%80%EA' \
+     '%B4%80%EB%84%80%EB%94%80%EB%A4%80%EB%B4%80%EC%84' \
+     '%80%EC%94%80%EC%A4%80%EC%B4%80%ED%84%80%ED%94%80%ED%9F%BF'),
     #  5. U+E000 through U+FFFD, in big steps
-    (u''.join(map(unichr, xrange(57344, 65534, 256))) + u'\ufffd',
-     u'%EE%80%80%EE%84%80%EE%88%80%EE%8C%80%EE%90%80%EE' \
-     u'%94%80%EE%98%80%EE%9C%80%EE%A0%80%EE%A4%80%EE%A8' \
-     u'%80%EE%AC%80%EE%B0%80%EE%B4%80%EE%B8%80%EE%BC%80' \
-     u'%EF%80%80%EF%84%80%EF%88%80%EF%8C%80%EF%90%80%EF' \
-     u'%94%80%EF%98%80%EF%9C%80%EF%A0%80%EF%A4%80%EF%A8' \
-     u'%80%EF%AC%80%EF%B0%80%EF%B4%80%EF%B8%80%EF%BC%80%EF%BF%BD'),
+    (''.join(map(chr, range(57344, 65534, 256))) + '\ufffd',
+     '%EE%80%80%EE%84%80%EE%88%80%EE%8C%80%EE%90%80%EE' \
+     '%94%80%EE%98%80%EE%9C%80%EE%A0%80%EE%A4%80%EE%A8' \
+     '%80%EE%AC%80%EE%B0%80%EE%B4%80%EE%B8%80%EE%BC%80' \
+     '%EF%80%80%EF%84%80%EF%88%80%EF%8C%80%EF%90%80%EF' \
+     '%94%80%EF%98%80%EF%9C%80%EF%A0%80%EF%A4%80%EF%A8' \
+     '%80%EF%AC%80%EF%B0%80%EF%B4%80%EF%B8%80%EF%BC%80%EF%BF%BD'),
     #  6. non-BMP tests moved to body of test, below
 ]
 
 
-class Test_file_uri_localhost_equiv(unittest.TestCase):
-    '''uridict implementation - file:/// and file://localhost/ equivalence'''
-    def test_uri_dict(self):
-        '''equivalent key in UriDict'''
-        uris = irihelpers.uridict()
-        uris['file:///path/to/resource'] = 0
-        self.assert_('file://localhost/path/to/resource' in uris, 'RFC 1738 localhost support failed')
+#class Test_file_uri_localhost_equiv(unittest.TestCase):
+'''uridict implementation - file:/// and file://localhost/ equivalence'''
+def test_uri_dict():
+    '''equivalent key in UriDict'''
+    uris = irihelpers.uridict()
+    uris['file:///path/to/resource'] = 0
+    assert 'file://localhost/path/to/resource' in uris, 'RFC 1738 localhost support failed'
 
-    def test_equiv_keys(self):
-        '''value of 2 equivalent keys'''
-        uris = irihelpers.uridict()
-        uris['file:///path/to/resource'] = 1
-        uris['file://localhost/path/to/resource'] = 2
-        self.assertEqual(2, uris['file:///path/to/resource'], 'RFC 1738 localhost support failed')
+def test_equiv_keys():
+    '''value of 2 equivalent keys'''
+    uris = irihelpers.uridict()
+    uris['file:///path/to/resource'] = 1
+    uris['file://localhost/path/to/resource'] = 2
+    assert 2 == uris['file:///path/to/resource'], 'RFC 1738 localhost support failed'
 
-class Test_case_equiv(unittest.TestCase):
-    '''uridict implementation - case equivalence'''
-    def test_case_normalization(self):
-        '''case normalization'''
-        uris = irihelpers.uridict()
-        for uri, expected, junk in case_normalization_tests:
-            uris[uri] = 1
-            uris[expected] = 2
-            self.assertEqual(2, uris[uri], '%s and %s equivalence' % (uri, expected))
+#class Test_case_equiv(unittest.TestCase):
+'''uridict implementation - case equivalence'''
+@pytest.mark.parameterize('uri,expected,junk', case_normalization_tests)
+def test_case_normalization(uri, expected, junk):
+    '''case normalization'''
+    uris = irihelpers.uridict()
+    uris[uri] = 1
+    uris[expected] = 2
+    assert 2 == uris[uri], '%s and %s equivalence' % (uri, expected)
 
-    def test_percent_encoding_equivalence(self):
-        '''percent-encoding equivalence'''
-        uris = irihelpers.uridict()
-        for uri, expected in pct_enc_normalization_tests:
-            uris[uri] = 1
-            uris[expected] = 2
-            self.assertEqual(2, uris[uri], '%s and %s equivalence' % (uri, expected))
+@pytest.mark.parameterize('uri,expected', pct_enc_normalization_tests)
+def test_percent_encoding_equivalence(uri, expected):
+    '''percent-encoding equivalence'''
+    uris = irihelpers.uridict()
+    uris[uri] = 1
+    uris[expected] = 2
+    assert 2 == uris[uri], '%s and %s equivalence' % (uri, expected)
 
-class Test_percent_encode_decode(unittest.TestCase):
-    '''PercentEncode and PercentDecode'''
+#class Test_percent_encode_decode(unittest.TestCase):
+#    '''PercentEncode and PercentDecode'''
+#def test_percent_encode(self):
+#print "Creating test", "test_percent_encode_%i"%count
+@pytest.mark.parameterize('unencoded,encoded', pct_enc_normalization_tests)
+def test_percent_encode_template(unencoded, encoded):
+    if len(unencoded) > 10:
+        test_title = unencoded[:11] + '...'
+    else:
+        test_title = unencoded
+    assert encoded == iri.percent_encode(unencoded)
+    assert unencoded == iri.percent_decode(encoded)
+
+
+#class Test_percent_encode_decode(unittest.TestCase):
+#    '''PercentEncode and PercentDecode'''
     #def test_percent_encode(self):
-    @classmethod
-    def create_test_percent_encodes(cls):
-        '''Percent encode'''
-        for count, (unencoded, encoded) in enumerate(percent_encode_tests):
-            #print "Creating test", "test_percent_encode_%i"%count
-            def test_percent_encode_template(self, count=count, unencoded=unencoded, encoded=encoded):
-                if len(unencoded) > 10:
-                    test_title = unencoded[:11] + '...'
-                else:
-                    test_title = unencoded
-                self.assertEqual(encoded, iri.percent_encode(unencoded))
-                self.assertEqual(unencoded, iri.percent_decode(encoded))
-            setattr(cls, "test_percent_encode_%i"%count, test_percent_encode_template)
+#    @classmethod
+#    def create_test_percent_encodes(cls):
+#        '''Percent encode'''
+#        for count, (unencoded, encoded) in enumerate(percent_encode_tests):
+#            #print "Creating test", "test_percent_encode_%i"%count
+#            def test_percent_encode_template(self, count=count, unencoded=unencoded, encoded=encoded):
+#                if len(unencoded) > 10:
+#                    test_title = unencoded[:11] + '...'
+#                else:
+#                    test_title = unencoded
+#                self.assertEqual(encoded, iri.percent_encode(unencoded))
+#                self.assertEqual(unencoded, iri.percent_decode(encoded))
+#            setattr(cls, "test_percent_encode_%i"%count, test_percent_encode_template)
 
     # non-BMP tests:
     #     a couple of random chars from U+10000 to U+10FFFD.
@@ -793,22 +808,22 @@ class Test_percent_encode_decode(unittest.TestCase):
     # encoded sequence, which should decode back to the original
     # representation.
     def test_non_bmp1(self):
-        '''non-BMP characters: u""\U00010000\U0010FFFD""'''
-        unencoded = u'\U00010000\U0010FFFD'
-        encoded = u'%F0%90%80%80%F4%8F%BF%BD'
-        self.assertEqual(encoded, iri.percent_encode(unencoded), "u'\U00010000\U0010FFFD'")
-        self.assertEqual(unencoded, iri.percent_decode(encoded), "u'\U00010000\U0010FFFD'")
+        '''non-BMP characters: ""\U00010000\U0010FFFD""'''
+        unencoded = '\U00010000\U0010FFFD'
+        encoded = '%F0%90%80%80%F4%8F%BF%BD'
+        self.assertEqual(encoded, iri.percent_encode(unencoded), "'\U00010000\U0010FFFD'")
+        self.assertEqual(unencoded, iri.percent_decode(encoded), "'\U00010000\U0010FFFD'")
 
     # This string will be length 4, regardless of how Python was
     # built. However, if Python was built with wide (UCS-4) chars,
     # PercentDecode will generate an optimal string (length: 2).
     def test_non_bmp2(self):
-        '''non-BMP characters: u"\ud800\udc00\udbff\udffd"'''
-        unencoded_in = u'\ud800\udc00\udbff\udffd'
-        encoded = u'%F0%90%80%80%F4%8F%BF%BD'
-        unencoded_out = u'\U00010000\U0010FFFD'
-        self.assertEqual(encoded, iri.percent_encode(unencoded_in), "u'\ud800\udc00\udbff\udffd'")
-        self.assertEqual(unencoded_out, iri.percent_decode(encoded), "u'\ud800\udc00\udbff\udffd'")
+        '''non-BMP characters: "\ud800\udc00\udbff\udffd"'''
+        unencoded_in = '\ud800\udc00\udbff\udffd'
+        encoded = '%F0%90%80%80%F4%8F%BF%BD'
+        unencoded_out = '\U00010000\U0010FFFD'
+        self.assertEqual(encoded, iri.percent_encode(unencoded_in), "'\ud800\udc00\udbff\udffd'")
+        self.assertEqual(unencoded_out, iri.percent_decode(encoded), "'\ud800\udc00\udbff\udffd'")
 
     # test a few iso-8859-n variations just to make sure
     # iso-8859-1 isn't special
@@ -840,8 +855,8 @@ class Test_percent_encode_decode(unittest.TestCase):
             self.assertEqual(unencoded, iri.percent_decode(encoded, encoding=enc_name), enc_name)
 
     # utf-16be: why not?
-    #unencoded = u'a test string...\x00\xe9...\x20\x22...\xd8\x00\xdc\x00'
-    #encoded = u'a%20test%20string...\u00e9...%20%22...%D8%00%DC%00'
+    #unencoded = 'a test string...\x00\xe9...\x20\x22...\xd8\x00\xdc\x00'
+    #encoded = 'a%20test%20string...\u00e9...%20%22...%D8%00%DC%00'
 
 Test_percent_encode_decode.create_test_percent_encodes()
 

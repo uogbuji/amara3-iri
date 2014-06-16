@@ -1,1 +1,1 @@
-version_info = ('3', '0', '0a1')
+version_info = ('3', '0', '0a2')

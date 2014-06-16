@@ -2,6 +2,10 @@
 Utilities for working with Python PEP 302 import hooks.
 
 Copyright 2006-2014 Jeremy Kloth and Uche Ogbuji
+
+Note: PEP 302 is legacy at this point, and its ideas incorporated into Python's built-in import facilities
+
+See: https://docs.python.org/3/library/importlib.html#module-importlib
 """
 
 import os
