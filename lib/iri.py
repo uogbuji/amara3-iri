@@ -481,7 +481,7 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
             else:
                 # percent-encode according to given encoding
                 for octet in c.encode(encoding):
-                    res += '%%%02X' % ord(octet)
+                    res += '%%%02X' % octet
 
         # unreserved -> safe to use as-is
         else:
