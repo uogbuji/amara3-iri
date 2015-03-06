@@ -27,7 +27,6 @@ __all__ = [
   # Miscellaneous
   'is_absolute', 'get_scheme', 'strip_fragment',
   'os_path_to_uri', 'uri_to_os_path', 'basejoin', 'join',
-  'make_urllib_safe',
   'WINDOWS_SLASH_COMPAT',
   'urlopen', 'path_resolve',
 ]
@@ -1542,80 +1541,6 @@ def uri_to_os_path(uri, attemptAbsolute=True, encoding='utf-8', osname=None):
         return url2pathname(uri)
 
 REG_NAME_HOST_PATTERN = re.compile(r"^(?:(?:[0-9A-Za-z\-_\.!~*'();&=+$,]|(?:%[0-9A-Fa-f]{2}))*)$")
-
-def make_urllib_safe(uriRef):
-    """
-    Makes the given RFC 3986-conformant URI reference safe for passing
-    to legacy urllib functions. The result may not be a valid URI.
-
-    As of Python 2.3.3, urllib.urlopen() does not fully support
-    internationalized domain names, it does not strip fragment components,
-    and on Windows, it expects file URIs to use '|' instead of ':' in the
-    path component corresponding to the drivespec. It also relies on
-    urllib.unquote(), which mishandles unicode arguments. This function
-    produces a URI reference that will work around these issues, although
-    the IDN workaround is limited to Python 2.3 only. May raise a
-    UnicodeEncodeError if the URI reference is Unicode and erroneously
-    contains non-ASCII characters.
-    """
-    # IDN support requires decoding any percent-encoded octets in the
-    # host part (if it's a reg-name) of the authority component, and when
-    # doing DNS lookups, applying IDNA encoding to that string first.
-    # As of Python 2.3, there is an IDNA codec, and the socket and httplib
-    # modules accept Unicode strings and apply IDNA encoding automatically
-    # where necessary. However, urllib.urlopen() has not yet been updated
-    # to do the same; it raises an exception if you give it a Unicode
-    # string, and does no conversion on non-Unicode strings, meaning you
-    # have to give it an IDNA string yourself. We will only support it on
-    # Python 2.3 and up.
-    #
-    # see if host is a reg-name, as opposed to IPv4 or IPv6 addr.
-    (scheme, auth, path, query, frag) = split_uri_ref(uriRef)
-    if auth and auth.find('@') > -1:
-        userinfo, hostport = auth.split('@')
-    else:
-        userinfo = None
-        hostport = auth
-    if hostport and hostport.find(':') > -1:
-        host, port = hostport.split(':')
-    else:
-        host = hostport
-        port = None
-    if host and REG_NAME_HOST_PATTERN.match(host):
-        # percent-encoded hostnames will always fail DNS lookups
-        host = percent_decode(host)
-        # IDNA-encode if possible.
-        # We shouldn't do this for schemes that don't need DNS lookup,
-        # but are there any (that you'd be calling urlopen for)?
-        if sys.version_info[0:2] >= (2,3):
-            if isinstance(host, str):
-                host = host.decode('utf-8')
-            host = host.encode('idna')
-        # reassemble the authority with the new hostname
-        # (percent-decoded, and possibly IDNA-encoded)
-        auth = ''
-        if userinfo:
-            auth += userinfo + '@'
-        auth += host
-        if port:
-            auth += ':' + port
-
-    # On Windows, ensure that '|', not ':', is used in a drivespec.
-    if os.name == 'nt' and scheme == 'file':
-        path = path.replace(':','|',1)
-
-    # Note that we drop fragment, if any. See RFC 3986 sec. 3.5.
-    uri = unsplit_uri_ref((scheme, auth, path, query, None))
-
-    # parts of urllib are not unicode safe
-    if isinstance(uri, unicode):
-        try:
-            # should work if IDNA encoding was applied (Py 2.3+)
-            uri = uri.encode('us-ascii')
-        except UnicodeError:
-            raise RuntimeError("The URI ref {uri} cannot be made urllib-safe on this "
-                "version of Python (IDNA encoding unsupported).".format(uri=uriRef))
-    return uri
 
 
 def path_resolve(paths):

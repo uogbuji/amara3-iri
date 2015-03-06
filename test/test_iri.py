@@ -1,7 +1,7 @@
 import pytest
 import os, unittest, sys, codecs
 import warnings
-from amara3 import iri, irihelpers
+from amara3 import iri, irihelpers, IriError
 
 # Test cases for BaseJoin() ==================================================
 # (base, relative, expected)
@@ -906,7 +906,7 @@ def test_uri_to_os_path():
                 else:
                     break
                 if path is None:
-                    with pytest.raises(iri.IriError, osname+': '+subgroupname+': '+testname):
+                    with pytest.raises(IriError, osname+': '+subgroupname+': '+testname):
                         iri.uri_to_os_path(uri, attemptAbsolute=False, osname=osname)
                 else:
                     assert path == iri.uri_to_os_path(uri, attemptAbsolute=False, osname=osname), \
@@ -927,7 +927,7 @@ def test_os_path_to_uri():
             else:
                 break
             if uri is None:
-                with pytest.raises(iri.IriError, osname+': '+subgroupname+': '+testname+': '+path):
+                with pytest.raises(IriError, osname+': '+subgroupname+': '+testname+': '+path):
                         iri.os_path_to_uri(path, attemptAbsolute=False, osname=osname)
             else:
                 assert uri == iri.os_path_to_uri(path, attemptAbsolute=False, osname=osname), \
@@ -973,20 +973,6 @@ def test_normalize_path_segments_in_uri():
             expected = 'file://root:changeme@host%s?a=1&b=2#frag' % expectedpath
             testname = uri
             assert expected == iri.normalize_path_segments_in_uri(uri), testname
-
-
-# MakeUrllibSafe
-def test_make_urllib_safe():
-    tests = make_urllib_safe_tests
-    if os.name == 'nt':
-        tests += win_make_urllib_safe_tests
-    for uri, expected in make_urllib_safe_tests:
-        if isinstance(uri, str):
-            test_title = repr(uri)
-        else:
-            test_title = uri
-        res = iri.make_urllib_safe(uri)
-        assert expected == res, test_title
 
 
 if __name__ == '__main__':
