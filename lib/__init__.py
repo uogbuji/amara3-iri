@@ -1,4 +1,4 @@
-#amara3.lib
+#amara3
 
 import gettext
 gettext.install('amara3')

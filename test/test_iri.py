@@ -1,8 +1,7 @@
 import pytest
 import os, unittest, sys, codecs
 import warnings
-from amara3 import iri, irihelpers, inputsource
-from amara.test.lib import find_file
+from amara3 import iri, irihelpers
 
 # Test cases for BaseJoin() ==================================================
 # (base, relative, expected)
@@ -753,7 +752,7 @@ def test_equiv_keys():
 
 #class Test_case_equiv(unittest.TestCase):
 '''uridict implementation - case equivalence'''
-@pytest.mark.parameterize('uri,expected,junk', case_normalization_tests)
+@pytest.mark.parametrize('uri,expected,junk', case_normalization_tests)
 def test_case_normalization(uri, expected, junk):
     '''case normalization'''
     uris = irihelpers.uridict()
@@ -761,7 +760,7 @@ def test_case_normalization(uri, expected, junk):
     uris[expected] = 2
     assert 2 == uris[uri], '%s and %s equivalence' % (uri, expected)
 
-@pytest.mark.parameterize('uri,expected', pct_enc_normalization_tests)
+@pytest.mark.parametrize('uri,expected', pct_enc_normalization_tests)
 def test_percent_encoding_equivalence(uri, expected):
     '''percent-encoding equivalence'''
     uris = irihelpers.uridict()
@@ -773,7 +772,7 @@ def test_percent_encoding_equivalence(uri, expected):
 #    '''PercentEncode and PercentDecode'''
 #def test_percent_encode(self):
 #print "Creating test", "test_percent_encode_%i"%count
-@pytest.mark.parameterize('unencoded,encoded', pct_enc_normalization_tests)
+@pytest.mark.parametrize('unencoded,encoded', pct_enc_normalization_tests)
 def test_percent_encode_template(unencoded, encoded):
     if len(unencoded) > 10:
         test_title = unencoded[:11] + '...'
@@ -783,256 +782,213 @@ def test_percent_encode_template(unencoded, encoded):
     assert unencoded == iri.percent_decode(encoded)
 
 
-#class Test_percent_encode_decode(unittest.TestCase):
-#    '''PercentEncode and PercentDecode'''
-    #def test_percent_encode(self):
-#    @classmethod
-#    def create_test_percent_encodes(cls):
-#        '''Percent encode'''
-#        for count, (unencoded, encoded) in enumerate(percent_encode_tests):
-#            #print "Creating test", "test_percent_encode_%i"%count
-#            def test_percent_encode_template(self, count=count, unencoded=unencoded, encoded=encoded):
-#                if len(unencoded) > 10:
-#                    test_title = unencoded[:11] + '...'
-#                else:
-#                    test_title = unencoded
-#                self.assertEqual(encoded, iri.percent_encode(unencoded))
-#                self.assertEqual(unencoded, iri.percent_decode(encoded))
-#            setattr(cls, "test_percent_encode_%i"%count, test_percent_encode_template)
+# non-BMP tests:
+#     a couple of random chars from U+10000 to U+10FFFD.
 
-    # non-BMP tests:
-    #     a couple of random chars from U+10000 to U+10FFFD.
-    #
-    # This string will be length 2 or 4 depending on how Python
-    # was built. Either way, it should result in the same percent-
-    # encoded sequence, which should decode back to the original
-    # representation.
-    def test_non_bmp1(self):
-        '''non-BMP characters: ""\U00010000\U0010FFFD""'''
-        unencoded = '\U00010000\U0010FFFD'
-        encoded = '%F0%90%80%80%F4%8F%BF%BD'
-        self.assertEqual(encoded, iri.percent_encode(unencoded), "'\U00010000\U0010FFFD'")
-        self.assertEqual(unencoded, iri.percent_decode(encoded), "'\U00010000\U0010FFFD'")
+def test_non_bmp1():
+    '''non-BMP characters: ""\U00010000\U0010FFFD""'''
+    unencoded = '\U00010000\U0010FFFD'
+    encoded = '%F0%90%80%80%F4%8F%BF%BD'
+    assert encoded == iri.percent_encode(unencoded), unencoded
+    assert unencoded == iri.percent_decode(encoded), unencoded
 
-    # This string will be length 4, regardless of how Python was
-    # built. However, if Python was built with wide (UCS-4) chars,
-    # PercentDecode will generate an optimal string (length: 2).
-    def test_non_bmp2(self):
-        '''non-BMP characters: "\ud800\udc00\udbff\udffd"'''
-        unencoded_in = '\ud800\udc00\udbff\udffd'
-        encoded = '%F0%90%80%80%F4%8F%BF%BD'
-        unencoded_out = '\U00010000\U0010FFFD'
-        self.assertEqual(encoded, iri.percent_encode(unencoded_in), "'\ud800\udc00\udbff\udffd'")
-        self.assertEqual(unencoded_out, iri.percent_decode(encoded), "'\ud800\udc00\udbff\udffd'")
+def test_non_bmp2():
+    '''non-BMP characters: "\ud800\udc00\udbff\udffd"'''
+    unencoded_in = '\ud800\udc00\udbff\udffd'
+    encoded = '%F0%90%80%80%F4%8F%BF%BD'
+    unencoded_out = '\U00010000\U0010FFFD'
+    assert encoded == iri.percent_encode(unencoded_in), unencoded_in
+    assert unencoded_out == iri.percent_decode(encoded), unencoded_in
 
-    # test a few iso-8859-n variations just to make sure
-    # iso-8859-1 isn't special
-    def test_non_bmp3(self):
-        '''non-BMP characters 3'''
-        unencoded = ''.join(map(chr, range(256)))
-        encoded = '%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F' \
-                  '%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F' \
-                  '%20%21%22%23%24%25%26%27%28%29%2A%2B%2C-.%2F' \
-                  '0123456789%3A%3B%3C%3D%3E%3F%40' \
-                  'ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%60' \
-                  'abcdefghijklmnopqrstuvwxyz%7B%7C%7D~' \
-                  '%7F%80%81%82%83%84%85%86%87%88%89%8A%8B%8C%8D%8E%8F' \
-                  '%90%91%92%93%94%95%96%97%98%99%9A%9B%9C%9D%9E%9F' \
-                  '%A0%A1%A2%A3%A4%A5%A6%A7%A8%A9%AA%AB%AC%AD%AE%AF' \
-                  '%B0%B1%B2%B3%B4%B5%B6%B7%B8%B9%BA%BB%BC%BD%BE%BF' \
-                  '%C0%C1%C2%C3%C4%C5%C6%C7%C8%C9%CA%CB%CC%CD%CE%CF' \
-                  '%D0%D1%D2%D3%D4%D5%D6%D7%D8%D9%DA%DB%DC%DD%DE%DF' \
-                  '%E0%E1%E2%E3%E4%E5%E6%E7%E8%E9%EA%EB%EC%ED%EE%EF' \
-                  '%F0%F1%F2%F3%F4%F5%F6%F7%F8%F9%FA%FB%FC%FD%FE%FF'
-        for part in (1,2,3,15):
-            enc_name = 'iso-8859-%d' % part
-            try:
-                codecs.lookup(enc_name)
-            except LookupError:
-                warnings.warn('Not supported on this platform')
-                continue
-            self.assertEqual(encoded, iri.percent_encode(unencoded, encoding=enc_name), enc_name)
-            self.assertEqual(unencoded, iri.percent_decode(encoded, encoding=enc_name), enc_name)
+# test a few iso-8859-n variations just to make sure
+# iso-8859-1 isn't special
+def test_non_bmp3():
+    '''non-BMP characters 3'''
+    unencoded = ''.join(map(chr, range(256)))
+    encoded = '%00%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F' \
+              '%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F' \
+              '%20%21%22%23%24%25%26%27%28%29%2A%2B%2C-.%2F' \
+              '0123456789%3A%3B%3C%3D%3E%3F%40' \
+              'ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%60' \
+              'abcdefghijklmnopqrstuvwxyz%7B%7C%7D~' \
+              '%7F%80%81%82%83%84%85%86%87%88%89%8A%8B%8C%8D%8E%8F' \
+              '%90%91%92%93%94%95%96%97%98%99%9A%9B%9C%9D%9E%9F' \
+              '%A0%A1%A2%A3%A4%A5%A6%A7%A8%A9%AA%AB%AC%AD%AE%AF' \
+              '%B0%B1%B2%B3%B4%B5%B6%B7%B8%B9%BA%BB%BC%BD%BE%BF' \
+              '%C0%C1%C2%C3%C4%C5%C6%C7%C8%C9%CA%CB%CC%CD%CE%CF' \
+              '%D0%D1%D2%D3%D4%D5%D6%D7%D8%D9%DA%DB%DC%DD%DE%DF' \
+              '%E0%E1%E2%E3%E4%E5%E6%E7%E8%E9%EA%EB%EC%ED%EE%EF' \
+              '%F0%F1%F2%F3%F4%F5%F6%F7%F8%F9%FA%FB%FC%FD%FE%FF'
+    for part in (1,2,3,15):
+        enc_name = 'iso-8859-%d' % part
+        try:
+            codecs.lookup(enc_name)
+        except LookupError:
+            warnings.warn('Not supported on this platform')
+            continue
+        assert encoded == iri.percent_encode(unencoded, encoding=enc_name), enc_name
+        assert unencoded == iri.percent_decode(encoded, encoding=enc_name), enc_name
 
     # utf-16be: why not?
     #unencoded = 'a test string...\x00\xe9...\x20\x22...\xd8\x00\xdc\x00'
     #encoded = 'a%20test%20string...\u00e9...%20%22...%D8%00%DC%00'
 
-Test_percent_encode_decode.create_test_percent_encodes()
+# URNs & PubIDs
+def test_urns_pubids():
+    for publicid, urn in public_id_tests:
+        assert urn == iri.public_id_to_urn(publicid), "public_id_to_urn: %s"%publicid
 
-class Test_urns_pubids(unittest.TestCase):
-    '''URNs & PubIDs'''
-    def test_urns_pubids(self):
-        for publicid, urn in public_id_tests:
-            self.assertEqual(urn, iri.public_id_to_urn(publicid), "public_id_to_urn: %s"%publicid)
+    for publicid, urn in public_id_tests:
+        assert publicid == iri.urn_to_public_id(urn), "urn_to_public_id: %s"%urn
 
-        for publicid, urn in public_id_tests:
-            self.assertEqual(publicid, iri.urn_to_public_id(urn), "urn_to_public_id: %s"%urn)
+# URI reference syntax
+def test_uriref_syntax():
+    for testuri in good_uri_references:
+        assert 1 == iri.matches_uri_ref_syntax(testuri), "Good URI ref: '%s' Mistakenly tests as invalid" % repr(testuri)
 
-class Test_uriref_syntax(unittest.TestCase):
-    '''URI reference syntax'''
-    def test_uriref_syntax(self):
-        for testuri in good_uri_references:
-            self.assertEqual(1, iri.matches_uri_ref_syntax(testuri), "Good URI ref: '%s' Mistakenly tests as invalid" % repr(testuri))
+    for testuri in bad_uri_references:
+        assert 0 == iri.matches_uri_ref_syntax(testuri), "Bad URI ref: '%s' Mistakenly tests as valid" % repr(testuri)
 
-        for testuri in bad_uri_references:
-            self.assertEqual(0, iri.matches_uri_ref_syntax(testuri), "Bad URI ref: '%s' Mistakenly tests as valid" % repr(testuri))
+# Absolutize
+def test_absolutize():
+    for uriRef, baseUri, expectedUri in absolutize_test_cases:
+        res = iri.absolutize(uriRef, baseUri)
+        # in a couple cases, there's more than one correct result
+        if isinstance(expectedUri, tuple):
+            assert 1 == res in expectedUri, 'base=%r ref=%r' % (baseUri, uriRef)
+        else:
+            assert expectedUri == res, 'base=%r ref=%r' % (baseUri, uriRef)
 
-class Test_absolutize(unittest.TestCase):
-    '''Absolutize'''
-    def test_absolutize(self):
-        for uriRef, baseUri, expectedUri in absolutize_test_cases:
-            res = iri.absolutize(uriRef, baseUri)
-            # in a couple cases, there's more than one correct result
-            if isinstance(expectedUri, tuple):
-                self.assertEqual(1, res in expectedUri, 'base=%r ref=%r' % (baseUri, uriRef))
-            else:
-                self.assertEqual(expectedUri, res, 'base=%r ref=%r' % (baseUri, uriRef))
-
-
-class Test_relativize(unittest.TestCase):
-    '''Relativize'''
-    def test_relativize(self):
-        for targetUri, againstUri, relativeUri, subPathUri in relativize_test_cases:
-            res = iri.relativize(targetUri, againstUri)
-            self.assertEqual(relativeUri, res, 'target=%r against=%r (subPathOnly=False)' %
-              (targetUri, againstUri))
-            if res is not None:
-                res = iri.absolutize(res, againstUri)
-                self.assertEqual(res, targetUri, 'target=%r against=%r (subPathOnly=False, Absolutize)' %
-                (targetUri, againstUri))
-            res = iri.relativize(targetUri, againstUri, True)
-            self.assertEqual(subPathUri, res, 'target=%r against=%r (subPathOnly=True)' %
-              (targetUri, againstUri))
-            if res is not None:
-                res = iri.absolutize(res, againstUri)
-                self.assertEqual(res, targetUri, 'target=%r against=%r (subPathOnly=True, Absolutize)' %
-                (targetUri, againstUri))
+ # Relativize
+def test_relativize():
+    for targetUri, againstUri, relativeUri, subPathUri in relativize_test_cases:
+        res = iri.relativize(targetUri, againstUri)
+        assert relativeUri == res, 'target=%r against=%r (subPathOnly=False)' % \
+          (targetUri, againstUri)
+        if res is not None:
+            res = iri.absolutize(res, againstUri)
+            assert res == targetUri, 'target=%r against=%r (subPathOnly=False, Absolutize)' % \
+            (targetUri, againstUri)
+        res = iri.relativize(targetUri, againstUri, True)
+        assert subPathUri == res, 'target=%r against=%r (subPathOnly=True)' % \
+          (targetUri, againstUri)
+        if res is not None:
+            res = iri.absolutize(res, againstUri)
+            assert res == targetUri, 'target=%r against=%r (subPathOnly=True, Absolutize)' % \
+            (targetUri, againstUri)
 
 
-class Test_base_join(unittest.TestCase):
-    '''base_join'''
-    def test_base_join(self):
-        for base, relative, expectedUri in basejoin_test_cases:
-            res = iri.basejoin(base, relative)
-            self.assertEqual(expectedUri, res, 'base=%r rel=%r' % (base, relative))
+# base_join
+def test_base_join():
+    for base, relative, expectedUri in basejoin_test_cases:
+        res = iri.basejoin(base, relative)
+        assert expectedUri == res, 'base=%r rel=%r' % (base, relative)
 
 
-class Test_uri_to_os_path(unittest.TestCase):
-    '''uri_to_os_path'''
-    def test_uri_to_os_path(self):
-        for osname in ('posix', 'nt'):
-            for subgroupname in ('absolute', 'relative'):
-                for uri, nt_path, posix_path in file_uris:
-                    if subgroupname == 'relative':
-                        if uri[:5] == 'file:':
-                            uri = uri[5:]
-                        else:
-                            break
-                    if isinstance(uri, unicode):
-                        testname = repr(uri)
-                    else:
-                        testname = uri
-                    if osname == 'nt':
-                        path = nt_path
-                    elif osname == 'posix':
-                        path = posix_path
+# uri_to_os_path
+def test_uri_to_os_path():
+    for osname in ('posix', 'nt'):
+        for subgroupname in ('absolute', 'relative'):
+            for uri, nt_path, posix_path in file_uris:
+                if subgroupname == 'relative':
+                    if uri[:5] == 'file:':
+                        uri = uri[5:]
                     else:
                         break
-                    if path is None:
-                        self.assertRaises(iri.IriError,
-                                              lambda uri=uri, osname=osname: iri.uri_to_os_path(
-                                                  uri, attemptAbsolute=False, osname=osname),
-                                              osname+': '+subgroupname+': '+testname)
-                    else:
-                        self.assertEqual(path, iri.uri_to_os_path(uri, attemptAbsolute=False, osname=osname),
-                                         osname+': '+subgroupname+': '+testname+': '+path)
-
-class Test_os_path_to_uri(unittest.TestCase):
-    '''os_path_to_uri'''
-    def test_os_path_to_uri(self):
-        for osname in ('posix', 'nt'):
-            for path, nt_uri, posix_uri in file_paths:
-                if isinstance(path, unicode):
-                    testname = repr(path)
+                if isinstance(uri, str):
+                    testname = repr(uri)
                 else:
-                    testname = path
+                    testname = uri
                 if osname == 'nt':
-                    uri = nt_uri
+                    path = nt_path
                 elif osname == 'posix':
-                    uri = posix_uri
+                    path = posix_path
                 else:
                     break
-                if uri is None:
-                    self.assertRaises(iri.IriError,
-                                      lambda path=path, osname=osname: iri.os_path_to_uri(
-                                          path, attemptAbsolute=False, osname=osname),
-                                      osname+': '+testname)
+                if path is None:
+                    with pytest.raises(iri.IriError, osname+': '+subgroupname+': '+testname):
+                        iri.uri_to_os_path(uri, attemptAbsolute=False, osname=osname)
                 else:
-                    self.assertEqual(uri, iri.os_path_to_uri(path, attemptAbsolute=False, osname=osname),
-                                     osname+': '+testname+': '+uri)
+                    assert path == iri.uri_to_os_path(uri, attemptAbsolute=False, osname=osname), \
+                                     osname+': '+subgroupname+': '+testname+': '+path
 
-
-class Test_normalize_case(unittest.TestCase):
-    '''normalize_case'''
-    def test_normalize_case(self):
-        for uri, expected0, expected1 in case_normalization_tests:
-            testname = uri
-            uri = iri.split_uri_ref(uri)
-            self.assertEqual(expected0, iri.unsplit_uri_ref(iri.normalize_case(uri)), testname)
-            self.assertEqual(expected1, iri.unsplit_uri_ref(iri.normalize_case(uri, doHost=1)), testname + ' (host too)')
-
-
-class Test_normalize_percent_encoding(unittest.TestCase):
-    '''NormalizePercentEncoding'''
-    def test_normalize_percent_encoding(self):
-        for uri, expected in pct_enc_normalization_tests:
-            testname = uri
-            self.assertEqual(expected, iri.normalize_percent_encoding(uri), testname)
-
-
-class Test_normalize_path_segments(unittest.TestCase):
-    '''NormalizePathSegments'''
-    def test_normalize_path_segments(self):
-        for path, expected in path_segment_normalization_tests:
-            testname = path
-            self.assertEqual(expected, iri.normalize_path_segments(path), testname)
-
-
-class Test_normalize_path_segments_in_uri(unittest.TestCase):
-    '''NormalizePathSegmentsInUri'''
-    def test_normalize_path_segments_in_uri(self):
-        for path, expectedpath in path_segment_normalization_tests:
-            # for non-hierarchical scheme, no change expected in every case
-            uri = 'urn:bogus:%s?a=1&b=2#frag' % path
-            expected = 'urn:bogus:%s?a=1&b=2#frag' % path
-            testname = uri
-            self.assertEqual(expected, iri.normalize_path_segments_in_uri(uri), testname)
-
-        for path, expectedpath in path_segment_normalization_tests:
-            if path[:1] == '/':
-                # hierarchical scheme
-                uri = 'file://root:changeme@host%s?a=1&b=2#frag' % path
-                expected = 'file://root:changeme@host%s?a=1&b=2#frag' % expectedpath
-                testname = uri
-                self.assertEqual(expected, iri.normalize_path_segments_in_uri(uri), testname)
-
-
-class Test_make_urllib_safe(unittest.TestCase):
-    '''MakeUrllibSafe'''
-    def test_make_urllib_safe(self):
-        tests = make_urllib_safe_tests
-        if os.name == 'nt':
-            tests += win_make_urllib_safe_tests
-        for uri, expected in make_urllib_safe_tests:
-            if isinstance(uri, unicode):
-                test_title = repr(uri)
+# os_path_to_uri
+def test_os_path_to_uri():
+    for osname in ('posix', 'nt'):
+        for path, nt_uri, posix_uri in file_paths:
+            if isinstance(path, str):
+                testname = repr(path)
             else:
-                test_title = uri
-            res = iri.make_urllib_safe(uri)
-            self.assertEqual(expected, res, test_title)
+                testname = path
+            if osname == 'nt':
+                uri = nt_uri
+            elif osname == 'posix':
+                uri = posix_uri
+            else:
+                break
+            if uri is None:
+                with pytest.raises(iri.IriError, osname+': '+subgroupname+': '+testname+': '+path):
+                        iri.os_path_to_uri(path, attemptAbsolute=False, osname=osname)
+            else:
+                assert uri == iri.os_path_to_uri(path, attemptAbsolute=False, osname=osname), \
+                                 osname+': '+testname+': '+uri
+
+
+# normalize_case
+def test_normalize_case():
+    for uri, expected0, expected1 in case_normalization_tests:
+        testname = uri
+        uri = iri.split_uri_ref(uri)
+        assert expected0 == iri.unsplit_uri_ref(iri.normalize_case(uri)), testname
+        assert expected1 == iri.unsplit_uri_ref(iri.normalize_case(uri, doHost=1)), testname + ' (host too)'
+
+
+# NormalizePercentEncoding
+def test_normalize_percent_encoding():
+    for uri, expected in pct_enc_normalization_tests:
+        testname = uri
+        assert expected == iri.normalize_percent_encoding(uri), testname
+
+
+# NormalizePathSegments
+def test_normalize_path_segments():
+    for path, expected in path_segment_normalization_tests:
+        testname = path
+        assert expected == iri.normalize_path_segments(path), testname
+
+
+# NormalizePathSegmentsInUri
+def test_normalize_path_segments_in_uri():
+    for path, expectedpath in path_segment_normalization_tests:
+        # for non-hierarchical scheme, no change expected in every case
+        uri = 'urn:bogus:%s?a=1&b=2#frag' % path
+        expected = 'urn:bogus:%s?a=1&b=2#frag' % path
+        testname = uri
+        assert expected == iri.normalize_path_segments_in_uri(uri), testname
+
+    for path, expectedpath in path_segment_normalization_tests:
+        if path[:1] == '/':
+            # hierarchical scheme
+            uri = 'file://root:changeme@host%s?a=1&b=2#frag' % path
+            expected = 'file://root:changeme@host%s?a=1&b=2#frag' % expectedpath
+            testname = uri
+            assert expected == iri.normalize_path_segments_in_uri(uri), testname
+
+
+# MakeUrllibSafe
+def test_make_urllib_safe():
+    tests = make_urllib_safe_tests
+    if os.name == 'nt':
+        tests += win_make_urllib_safe_tests
+    for uri, expected in make_urllib_safe_tests:
+        if isinstance(uri, str):
+            test_title = repr(uri)
+        else:
+            test_title = uri
+        res = iri.make_urllib_safe(uri)
+        assert expected == res, test_title
 
 
 if __name__ == '__main__':
-    raise SystemExit("Use nosetests")
+    raise SystemExit("Use py.test")
 

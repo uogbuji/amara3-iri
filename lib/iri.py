@@ -451,6 +451,10 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
 
     This function is similar to urllib.quote(), but is more conformant and
     Unicode-friendly. Suggestions for improvements welcome.
+
+    >>> from amara3 import iri
+    >>> iri.percent_encode('http://bibfra.me/vocab/relation/論定')
+    http%3A%2F%2Fbibfra.me%2Fvocab%2Frelation%2F%E8%AB%96%E5%AE%9A
     """
     res = ''
     if nlChars is not None:
@@ -481,7 +485,7 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
             else:
                 # percent-encode according to given encoding
                 for octet in c.encode(encoding):
-                    res += '%%%02X' % ord(octet)
+                    res += '%%%02X' % octet
 
         # unreserved -> safe to use as-is
         else:

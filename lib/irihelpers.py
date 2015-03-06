@@ -7,14 +7,14 @@ Copyright 2008-2009 Uche Ogbuji
 """
 
 import os, sys
-from cStringIO import StringIO
-import urllib, urllib2
-import mimetools
-from email.Utils import formatdate as _formatdate
+import io
+import urllib, urllib.request
+import email
+from email.utils import formatdate as _formatdate
 
-from amara.lib import IriError
-#from amara.lib import inputsource
-from amara.lib.iri import *
+import amara3
+IriError = amara3.IriError
+from amara3.iri import *
 
 __all__ = [
 'DEFAULT_URI_SCHEMES',
@@ -27,7 +27,7 @@ __all__ = [
 
 # URI schemes supported by resolver_base
 DEFAULT_URI_SCHEMES = ('http', 'file', 'ftp', 'data', 'pkgdata')
-if hasattr(urllib2, 'HTTPSHandler'):
+if hasattr(urllib.request, 'HTTPSHandler'):
     DEFAULT_URI_SCHEMES += ('https',)
 DEFAULT_HIERARCHICAL_SEP = '/' #a separator to place between path segments when creating URLs
 
@@ -51,7 +51,7 @@ class resolver:
         Raises a IriError if the URI scheme is unsupported or if a stream
         could not be obtained for any reason.
         """
-        if not isinstance(uriRef, urllib2.Request):
+        if not isinstance(uriRef, urllib.request.Request):
             if baseUri is not None:
                 uri = self.absolutize(uriRef, baseUri)
                 scheme = get_scheme(uri)
@@ -66,7 +66,7 @@ class resolver:
                     else:
                         raise IriError(IriError.UNSUPPORTED_SCHEME,
                                            scheme=scheme, resolver=self.__class__.__name__)
-            req = urllib2.Request(uri)
+            req = urllib.request.Request(uri)
         else:
             req, uri = uriRef, uriRef.get_full_url()
 
@@ -86,14 +86,14 @@ class resolver:
             stats = os.stat(path)
             size = stats.st_size
             mtime = _formatdate(stats.st_mtime)
-            headers = mimetools.Message(StringIO(
+            headers = email.Message(io.StringIO(
                 'Content-Length: %s\nLast-Modified: %s\n' % (size, mtime)))
             stream = urllib.addinfourl(stream, headers, uri)
         else:
-            # urllib2.urlopen, wrapped by us, will suffice for http, ftp,
+            # urllib.request.urlopen, wrapped by us, will suffice for http, ftp,
             # data and gopher
             try:
-                stream = urllib2.urlopen(req)
+                stream = urllib.request.urlopen(req)
             except IOError as e:
                 raise IriError(IriError.RESOURCE_ERROR,
                                    uri=uri, loc=uri, msg=str(e))
@@ -217,9 +217,9 @@ class facade_resolver(resolver):
         if uri in self.cache:
             cachedval = self.cache[uri]
             if isinstance(cachedval, unicode):
-                return StringIO(cachedval.encode('utf-8'))
+                return io.StringIO(cachedval.encode('utf-8'))
             else:
-                return StringIO(str(cachedval))
+                return io.StringIO(str(cachedval))
         return default_resolver.resolve(self, uri, base)
 
 #
