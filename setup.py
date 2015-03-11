@@ -21,7 +21,7 @@ setup(
     classifiers = [
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         #"Environment :: Other Environment",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
@@ -29,7 +29,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Internet :: WWW/HTTP",
         ],
-    long_description = '''
+    long_description = '''The core of the Amara3 project, which contains a variety of data processing tools, is a module for handling Internationalized Resource Identifiers (IRIs)
     '''
     )
 

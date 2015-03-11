@@ -919,6 +919,7 @@ def test_uri_to_os_path():
                     #assert path == iri.uri_to_os_path(uri, attemptAbsolute=False, osname=osname), \
                     #                 osname+': '+subgroupname+': '+testname+': '+path
 
+
 # os_path_to_uri
 def test_os_path_to_uri():
     for osname in ('posix', 'nt'):
