@@ -3,7 +3,7 @@
 """
 Classes and functions related to IRI/URI processing, validation, resolution, etc.
 
-Copyright 2008-2014 Mike Brown and Uche Ogbuji
+Copyright 2008-2015 Mike Brown and Uche Ogbuji
 """
 
 __all__ = [
@@ -45,6 +45,8 @@ from amara3 import importutil
 WINDOWS_SLASH_COMPAT = True
 
 DEFAULT_HIERARCHICAL_SEP = '/'
+
+PERCENT_DECODE_BYTES = ('0123456789%s-._~' % ascii_letters).encode('ascii')
 
 
 def iri_to_uri(iri, convertHost=False):
@@ -491,62 +493,102 @@ def percent_encode(s, encoding='utf-8', encodeReserved=True, spaceToPlus=False,
             res += c
     return res
 
+_ASCII_PAT = re.compile('([\x00-\x7f]+)')
 
-def percent_decode(s, encoding='utf-8', decodable=None):
+_HEXDIG = '0123456789ABCDEFabcdef'
+_HEXTOBYTE = None
+
+
+def _unquote_to_bytes(s, decodable=None):
+    """_unquote_to_bytes('abc%20def') -> b'abc def'."""
+    # Note: strings are encoded as UTF-8. This is only an issue if it contains
+    # unescaped non-ASCII characters, which URIs should not.
+    if not s:
+        # Is it a string-like object?
+        s.split
+        return b''
+    if isinstance(s, str):
+        s = s.encode('utf-8')
+    bits = s.split(b'%')
+    if len(bits) == 1:
+        return s
+    res = [bits[0]]
+    append = res.append
+    # Delay the initialization of the table to not waste memory
+    # if the function is never called
+    global _HEXTOBYTE
+    if _HEXTOBYTE is None:
+        _HEXTOBYTE = {(a + b).encode(): bytes([int(a + b, 16)])
+                      for a in _HEXDIG for b in _HEXDIG}
+    for item in bits[1:]:
+        try:
+            c = chr(int(item[:2], 16)).encode('ascii')
+            if decodable is None or c in decodable:
+                append(_HEXTOBYTE[item[:2]])
+                append(item[2:])
+            #FIXME: We'll need to do our own surrogate pair decoding because:
+            #>>> '\ud800'.encode('utf-8') -> UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
+            else:
+                append(b'%')
+                append(item)
+        except (ValueError, KeyError):
+            append(b'%')
+            append(item)
+    return b''.join(res)
+
+#>>> from amara3.iri import percent_decode
+#>>> u0 = 'example://A/b/c/%7bfoo%7d'
+#>>> u1 = percent_decode(u0)
+#>>> u1
+#'example://A/b/c/{foo}'
+
+
+def percent_decode(s, encoding='utf-8', decodable=None, errors='replace'):
     """
     [*** Experimental API ***] Reverses the percent-encoding of the given
     string.
 
-    Similar to urllib.unquote()
+    Similar to urllib.parse.unquote()
 
     By default, all percent-encoded sequences are decoded, but if a byte
     string is given via the 'decodable' argument, only the sequences
     corresponding to those octets will be decoded.
 
-    The percent-encoded sequences are converted to
-    bytes, then converted back to Unicode according to the encoding given in
-    the encoding argument. For example, by default, 'abc%E2%80%A2' will be
-    converted to 'abc\u2022', because byte sequence E2 80 A2 represents
-    character U+2022 in UTF-8.
+    Percent-encoded sequences are converted to bytes, then converted back to
+    string (Unicode) according to the given encoding.
+    For example, by default, 'abc%E2%80%A2' will be converted to 'abc\u2022',
+    because byte sequence E2 80 A2 represents character U+2022 in UTF-8.
 
     This function is intended for use on the portions of a URI that are
     delimited by reserved characters (see percent_encode), or on a value from
     data of media type application/x-www-form-urlencoded.
+
+    >>> from amara3.iri import percent_decode
+    >>> u0 = 'http://host/abc%E2%80%A2/x/y/z'
+    >>> u1 = percent_decode(u0)
+    >>> hex(ord(u1[15]))
+    '0x2022'
     """
-    # Most of this comes from urllib.unquote().
-    # urllib.unquote(), if given a unicode argument, does not decode
-    # percent-encoded octets above %7F. [Still true in Python 3.3?]
-    list_ = s.split('%')
-    res = [list_[0]]
-    myappend = res.append
-    del list_[0]
-    for item in list_:
-        if item[1:2]:
-            try:
-                c = chr(int(item[:2], 16))
-                if decodable is None:
-                    myappend(c + item[2:])
-                #elif c in decodable:
-                #    myappend(c + item[2:])
-                #FIXME: We'll need to do our own surrogate pair decoding because:
-                #>>> '\ud800'.encode('utf-8') -> UnicodeEncodeError: 'utf-8' codec can't encode character '\ud800' in position 0: surrogates not allowed
-                else:
-                    myappend('%' + item)
-            except ValueError:
-                myappend('%' + item)
-        else:
-            myappend('%' + item)
-    s = ''.join(res)
-    # The original input must represent
-    # characters; e.g., '%E2%80%A2' -> '\xe2\x80\xa2' -> '\u2022'
-    # (assuming UTF-8 basis for percent-encoding). However,
-    # at this point in the implementation, variable s would actually be
-    # '\u00e2\u0080\u00a2', so we first convert it to bytes (via an
-    # iso-8859-1 encode) in order to get '\xe2\x80\xa2'. Then we decode back
-    # according to the desired encoding (UTF-8 by default) in
-    # order to produce '\u2022'.
-    s = s.encode('iso-8859-1').decode(encoding)
-    return s
+    # Most of this comes from urllib.parse.unquote().
+    # Note: strings are encoded as UTF-8. This is only an issue if it contains
+    # unescaped non-ASCII characters, which URIs should not.
+    # If given a string argument, does not decode
+    # percent-encoded octets above %7F.
+
+    if '%' not in s:
+        #s.split
+        return s
+    if encoding is None:
+        encoding = 'utf-8'
+    if errors is None:
+        errors = 'replace'
+    bits = _ASCII_PAT.split(s)
+    res = [bits[0]]
+    append = res.append #Saving the func lookups in the tight loop below
+    for i in range(1, len(bits), 2):
+        append(_unquote_to_bytes(bits[i], decodable=decodable).decode(encoding, errors))
+        append(bits[i + 1])
+    return ''.join(res)
 
 
 def absolutize(uriRef, baseUri, limit_schemes=None):
@@ -895,8 +937,13 @@ def normalize_percent_encoding(s):
     returns the string with all percent-encoded octets that correspond to
     unreserved characters decoded, implementing section 6.2.2.2 of RFC
     3986.
+
+    >>> u0 = 'http://host/abc%E2%80%A2/x/y/z'
+    >>> u1 = normalize_percent_encoding(u0)
+    >>> hex(ord(u1[15]))
+    '0x2022'
     """
-    return percent_decode(s, decodable='0123456789%s-._~' % ascii_letters)
+    return percent_decode(s, decodable=PERCENT_DECODE_BYTES)
 
 
 def normalize_path_segments(path):
