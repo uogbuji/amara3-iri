@@ -141,7 +141,7 @@ def convert_ireg_name(iregname):
     # I have not yet verified that the default IDNA encoding
     # matches the algorithm required by the IRI spec, but it
     # does work on the one simple example in the spec.
-    return iregname.encode('idna')
+    return iregname.encode('idna').decode('ascii')
 
 
 #=============================================================================
@@ -656,7 +656,7 @@ def absolutize(uriRef, baseUri, limit_schemes=None):
     if limit_schemes and get_scheme(baseUri) not in limit_schemes:
         scheme = get_scheme(baseUri)
         raise ValueError("The URI scheme {scheme} is not supported by resolver".format(scheme=scheme))
-    
+
     # shortcut for the simplest same-document reference cases
     if uriRef == '' or uriRef[0] == '#':
         return baseUri.split('#')[0] + uriRef
@@ -1056,7 +1056,7 @@ def urlopen(url, *args, **kwargs):
     """
     A replacement/wrapper for urllib.request.urlopen(), formerly urllib2.urlopen() in Python 1 & 2.
 
-    Simply calls make_urllib_safe() on the given URL and passes the result
+    Simply calls iri_to_uri() on the given URL and passes the result
     and all other args to urllib.request.urlopen().
     """
     global _opener
@@ -1064,7 +1064,7 @@ def urlopen(url, *args, **kwargs):
         _opener = urllib.request.build_opener(_data_handler, _pep302_handler)
 
     # work around urllib's intolerance for proper URIs, Unicode, IDNs
-    stream = _opener.open(make_urllib_safe(url), *args, **kwargs)
+    stream = _opener.open(iri_to_uri(url), *args, **kwargs)
     stream.name = url
     return stream
 
