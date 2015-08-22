@@ -2,13 +2,12 @@
 """
 Some utilities for general use in Amara
 
-Copyright 2008-2014 Uche Ogbuji
+Copyright 2008-2015 Uche Ogbuji
 """
 
 def coroutine(func):
     '''
-    A simple tool to eliminate the need to call next() to kick-start a co-routin
-e
+    Decorator: Eliminate the need to call next() to kick-start a co-routine
     From David Beazley: http://www.dabeaz.com/generators/index.html
     '''
     def start(*args,**kwargs):

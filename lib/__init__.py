@@ -44,3 +44,5 @@ class IriError(Exception):
                 "Access to IRI %(uri)r was denied by action of an IRI restriction"),
             }
 '''
+
+from .inputsource import inputsource, inputsourcetype
