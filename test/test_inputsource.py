@@ -1,7 +1,7 @@
 import pytest
 import io, os, sys, inspect #,codecs
 import warnings
-from amara3 import inputsource, iri, irihelpers, IriError
+from amara3 import inputsource, iri, IriError
 from amara3.inputsource import factory
 
 import os, inspect

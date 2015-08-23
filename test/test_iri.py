@@ -1,7 +1,7 @@
 import pytest
 import os, unittest, sys, codecs
 import warnings
-from amara3 import iri, irihelpers, IriError
+from amara3 import iri, irihelper, IriError
 
 # Test cases for BaseJoin() ==================================================
 # (base, relative, expected)
@@ -739,13 +739,13 @@ percent_encode_tests = [
 '''uridict implementation - file:/// and file://localhost/ equivalence'''
 def test_uri_dict():
     '''equivalent key in UriDict'''
-    uris = irihelpers.uridict()
+    uris = irihelper.uridict()
     uris['file:///path/to/resource'] = 0
     assert 'file://localhost/path/to/resource' in uris, 'RFC 1738 localhost support failed'
 
 def test_equiv_keys():
     '''value of 2 equivalent keys'''
-    uris = irihelpers.uridict()
+    uris = irihelper.uridict()
     uris['file:///path/to/resource'] = 1
     uris['file://localhost/path/to/resource'] = 2
     assert 2 == uris['file:///path/to/resource'], 'RFC 1738 localhost support failed'
@@ -755,7 +755,7 @@ def test_equiv_keys():
 @pytest.mark.parametrize('uri,expected,junk', case_normalization_tests)
 def test_case_normalization(uri, expected, junk):
     '''case normalization'''
-    uris = irihelpers.uridict()
+    uris = irihelper.uridict()
     uris[uri] = 1
     uris[expected] = 2
     assert 2 == uris[uri], '%s and %s equivalence' % (uri, expected)
@@ -763,7 +763,7 @@ def test_case_normalization(uri, expected, junk):
 @pytest.mark.parametrize('uri,expected', pct_enc_normalization_tests)
 def test_percent_encoding_equivalence(uri, expected):
     '''percent-encoding equivalence'''
-    uris = irihelpers.uridict()
+    uris = irihelper.uridict()
     uris[uri] = 1
     uris[expected] = 2
     assert 2 == uris[uri], '%s and %s equivalence' % (uri, expected)
