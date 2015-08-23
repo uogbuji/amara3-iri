@@ -83,3 +83,14 @@ def test_filelist_is():
     assert inp.iri is None
     assert inp.stream.read() == 'python\n'
 
+
+def test_zip_is():
+    zf = open(os.path.join(RESOURCEPATH, 'speggs.zip'), 'rb')
+    inpl = factory(zf, zipcheck=True)
+    inp = next(inpl)
+    assert inp.iri is None
+    assert inp.stream.read() == b'python\n'
+    inp = next(inpl)
+    assert inp.iri is None
+    assert inp.stream.read() == b'monty\n'
+

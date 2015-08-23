@@ -6,6 +6,7 @@ Copyright 2008-2015 Uche Ogbuji
 """
 
 import zipfile
+import functools
 from enum import Enum
 from io import StringIO, BytesIO
 
@@ -21,30 +22,34 @@ class inputsourcetype(Enum):
     zipfilestream = 5
 
 
-def factory(obj, zipcheck=False):
+def factory(obj, encoding=None, streamopenmode='rb', zipcheck=False):
     '''
+    Helper function to create an iterable of inputsources from compound sources such as a zip file
+    Returns an iterable of input sources
+    
+    obj - object, possibly list or tuple of items to be converted into one or more inputsource
     '''
+    _inputsource = functools.partial(inputsource, encoding=encoding, streamopenmode=streamopenmode)
     if isinstance(obj, tuple) or isinstance(obj, list):
-        inputsourcelist = [ inputsource(o) for o in obj ]
+        inputsources = [ _inputsource(o) for o in obj ]
     #if isinstance(objs, str) or isinstance(objs, bytes) or isinstance(objs, bytearray):
-    elif zipcheck:
-        #Don't do a zipcheck unless we know we can rewind the obj
-        #Because zipfile.is_zipfile fast forwards to EOF
-        if hasattr(obj, 'seek'):
-            if zipfile.is_zipfile(obj):
-                _zf = zipfile.ZipFile(obj, 'r')
-                #obj_list = chain(self._zf.infolist(), self.obj_list)
-            else:
-                obj.seek(0, 0)
-
-            if isinstance(obj, zipfile.ZipInfo):
-                #From the doc: Note If the ZipFile was created by passing in a file-like object as the first argument to the constructor, then the object returned by open() shares the ZipFile’s file pointer. Under these circumstances, the object returned by open() should not be used after any additional operations are performed on the ZipFile object.
-                stream = _zf.open(obj, mode='r')
-                return self
-
+    #Don't do a zipcheck unless we know we can rewind the obj
+    #Because zipfile.is_zipfile fast forwards to EOF
+    elif zipcheck and hasattr(obj, 'seek'):
+        inputsources = []
+        if zipfile.is_zipfile(obj):
+            def zipfilegen():
+                zf = zipfile.ZipFile(obj, 'r') #Mode must be r, w or a
+                for info in zf.infolist():
+                    #From the doc: Note If the ZipFile was created by passing in a file-like object as the first argument to the constructor, then the object returned by open() shares the ZipFile’s file pointer. Under these circumstances, the object returned by open() should not be used after any additional operations are performed on the ZipFile object.
+                    yield(_inputsource(zf.open(info, mode='r')))
+            inputsources = zipfilegen()
+        else:
+            #Because zipfile.is_zipfile fast forwards to EOF
+            obj.seek(0, 0)
     else:
-        inputsourcelist = [inputsource(obj)]
-    return inputsourcelist
+        inputsources = [_inputsource(obj)]
+    return inputsources
 
 
 class inputsource(object):
