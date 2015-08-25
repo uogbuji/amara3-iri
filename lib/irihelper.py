@@ -3,7 +3,7 @@
 """
 Specialized and useful input source and URI tools
 
-Copyright 2008-2009 Uche Ogbuji
+Copyright 2008-2015 Uche Ogbuji
 """
 
 import os, sys
@@ -297,4 +297,77 @@ def get_filename_parts_from_url(url):
     if t[1]:
         t[1] = t[1][1:]
     return t
+
+
+#Monkeypatch workaround to http://bugs.python.org/issue17214 
+#("http.client.HTTPConnection.putrequest encode error")
+#In order to use this, just do: 
+#from amara3 import irihelper
+#Then for example you can safely use stdlib urlopen or amara3.iri.urlopen in cases affected by encoding error after redirect
+
+#from amara3.iri import urlopen
+
+from urllib.request import HTTPRedirectHandler
+# Implementation note: To avoid the server sending us into an
+# infinite loop, the request object needs to track what URLs we
+# have already seen.  Do this by adding a handler-specific
+# attribute to the Request object.
+def http_error_302(self, req, fp, code, msg, headers):
+    # Some servers (incorrectly) return multiple Location headers
+    # (so probably same goes for URI).  Use first header.
+    if "location" in headers:
+        newurl = headers["location"]
+    elif "uri" in headers:
+        newurl = headers["uri"]
+    else:
+        return
+
+    # fix a possible malformed URL
+    urlparts = urlparse(newurl)
+
+    # For security reasons we don't allow redirection to anything other
+    # than http, https or ftp.
+
+    if urlparts.scheme not in ('http', 'https', 'ftp', ''):
+        raise HTTPError(
+            newurl, code,
+            "%s - Redirection to url '%s' is not allowed" % (msg, newurl),
+            headers, fp)
+
+    urlpartslist = list(urlparts)
+    path = urlparts.path if urlpaths.path else "/"
+    # parse_headers() decodes from iso-8859-1 and unquotes, undo damage
+    path = urlparts.path.encode("iso-8859-1")
+    urlpartslist[2] = quote(path)
+
+    newurl = urlunparse(urlpartslist)
+    newurl = urljoin(req.full_url, newurl)
+
+    # XXX Probably want to forget about the state of the current
+    # request, although that might interact poorly with other
+    # handlers that also use handler-specific request attributes
+    new = self.redirect_request(req, fp, code, msg, headers, newurl)
+    if new is None:
+        return
+
+    # loop detection
+    # .redirect_dict has a key url if url was previously visited.
+    if hasattr(req, 'redirect_dict'):
+        visited = new.redirect_dict = req.redirect_dict
+        if (visited.get(newurl, 0) >= self.max_repeats or
+            len(visited) >= self.max_redirections):
+            raise HTTPError(req.full_url, code,
+                            self.inf_msg + msg, headers, fp)
+    else:
+        visited = new.redirect_dict = req.redirect_dict = {}
+    visited[newurl] = visited.get(newurl, 0) + 1
+
+    # Don't close the fp until we are sure that we won't use it
+    # with HTTPError.
+    fp.read()
+    fp.close()
+
+    return self.parent.open(new, timeout=req.timeout)
+
+HTTPRedirectHandler.http_error_301 = HTTPRedirectHandler.http_error_303 = HTTPRedirectHandler.http_error_307 = http_error_302
 
