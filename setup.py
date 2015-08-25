@@ -15,7 +15,7 @@ setup(
     author_email='uche@ogbuji.net',
     url='http://uche.ogbuji.net',
     package_dir={'amara3': 'lib'},
-    packages=['amara3'],
+    packages=['amara3', 'amara3.contrib'],
     keywords = ["web", "data"],
     #scripts=['exec/exhibit_agg', 'exec/exhibit_lint'],
     classifiers = [
