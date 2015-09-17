@@ -115,7 +115,7 @@ class inputsource(object):
             #FIXME: convert path to URI
             self.iri = iri or iri.os_path_to_uri(obj)
             self.stream = open(obj, streamopenmode)
-        elif self.sourcetype == inputsourcetype.string or isinstance(obj, str) or isinstance(self.obj, bytes):
+        elif self.sourcetype == inputsourcetype.string or isinstance(obj, str) or isinstance(obj, bytes):
             self.stream = StringIO(obj)
             #If obj is beyond a certain length, don't even try it as a URI
             #if len(obj) < MAX_URI_LENGTH_FOR_HEURISTIC:
