@@ -22,16 +22,18 @@ class inputsourcetype(Enum):
     zipfilestream = 5
 
 
-def factory(obj, encoding=None, streamopenmode='rb', zipcheck=False):
+def factory(obj, defaultsourcetype=inputsourcetype.unknown, encoding=None, streamopenmode='rb', zipcheck=False):
     '''
     Helper function to create an iterable of inputsources from compound sources such as a zip file
     Returns an iterable of input sources
-    
+
     obj - object, possibly list or tuple of items to be converted into one or more inputsource
     '''
+    if isinstance(obj, inputsource):
+        return obj
     _inputsource = functools.partial(inputsource, encoding=encoding, streamopenmode=streamopenmode)
     if isinstance(obj, tuple) or isinstance(obj, list):
-        inputsources = [ _inputsource(o) for o in obj ]
+        inputsources = [ _inputsource(o, sourcetype=defaultsourcetype) for o in obj ]
     #if isinstance(objs, str) or isinstance(objs, bytes) or isinstance(objs, bytearray):
     #Don't do a zipcheck unless we know we can rewind the obj
     #Because zipfile.is_zipfile fast forwards to EOF
@@ -55,10 +57,10 @@ def factory(obj, encoding=None, streamopenmode='rb', zipcheck=False):
 class inputsource(object):
     '''
     A flexible class for managing input sources for e.g. XML processing
-    
+
     Loosely based on Amara's old inputsource <https://github.com/zepheira/amara/blob/master/lib/lib/_inputsource.py>
     '''
-    def __init__(self, obj, iri=None, encoding=None, streamopenmode='rb',
+    def __init__(self, obj, siri=None, encoding=None, streamopenmode='rb',
                     sourcetype=inputsourcetype.unknown):
         '''
         obj - byte string, proper string (only if you really know what you're doing),
@@ -83,7 +85,7 @@ class inputsource(object):
         <_io.StringIO object at 0x1011af5e8>
         >>> print(inp.iri)
         None
-        >>> 
+        >>>
         '''
         # from amara3 import inputsource; inp = inputsource('foo.zip')
         # from amara3 import inputsource; inp = inputsource('test/resource/std-examples.zip')
@@ -94,7 +96,7 @@ class inputsource(object):
         # b'<?xml version="1.0" encoding="UTF-8"?>\r\n<collection xmlns="http://www.loc.gov/MARC21/slim">\r\n  <reco'
 
         self.stream = None
-        self.iri = iri
+        self.iri = siri
         self.sourcetype = sourcetype
 
         if obj in ('', b''):
@@ -108,31 +110,30 @@ class inputsource(object):
             #See this article about XML detection heuristics
             #http://www.xml.com/pub/a/2007/02/28/what-does-xml-smell-like.html
             #uri = uri or uuid4().urn
-        elif self.sourcetype == inputsourcetype.iri or (iri and iri.matches_uri_syntax(obj)):
-            self.iri = iri or obj
+        elif self.sourcetype == inputsourcetype.iri or (siri and iri.matches_uri_syntax(obj)):
+            self.iri = siri or obj
             self.stream = urlopen(iri)
-        elif self.sourcetype == inputsourcetype.filename or (iri and iri.is_absolute(obj) and not os.path.isfile(obj)):
+        elif self.sourcetype == inputsourcetype.filename or (siri and iri.is_absolute(obj) and not os.path.isfile(obj)):
             #FIXME: convert path to URI
-            self.iri = iri or iri.os_path_to_uri(obj)
+            self.iri = siri or iri.os_path_to_uri(obj)
             self.stream = open(obj, streamopenmode)
         elif self.sourcetype == inputsourcetype.string or isinstance(obj, str) or isinstance(obj, bytes):
             self.stream = StringIO(obj)
             #If obj is beyond a certain length, don't even try it as a URI
             #if len(obj) < MAX_URI_LENGTH_FOR_HEURISTIC:
             #    self.iri = iri.os_path_to_uri(obj)
-            #    self.stream = urlopen(iri)
+            #    self.stream = urlopen(siri)
         else:
             raise ValueError("Unable to recognize as an inputsource")
         return
 
     @staticmethod
-    def text(obj, iri=None, encoding=None):
+    def text(obj, siri=None, encoding=None):
         '''
         Set up an input source from text, according to the markup convention of the term
         (i.e. in Python terms a string with XML, HTML, fragments thereof, or tag soup)
-        
+
         Helps with processing content sources that are not unambiguously XML or HTML strings
         (e.g. could be mistaken for filenames or IRIs)
         '''
-        return inputsource(obj, iri, encoding, sourcetype=inputsourcetype.string)
-
+        return inputsource(obj, siri, encoding, sourcetype=inputsourcetype.string)
