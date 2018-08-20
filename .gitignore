@@ -1,6 +1,7 @@
 scratch
 #PyCharm
 .idea
+.pytest_cache
 
 MANIFEST
 

@@ -1,5 +1,3 @@
-########################################################################
-# $Header$
 """
 Classes and functions related to IRI/URI processing, validation, resolution, etc.
 
