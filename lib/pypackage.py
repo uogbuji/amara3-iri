@@ -1,12 +1,14 @@
+#amara.pypackage
 """
-Utilities for working with Python PEP 302 import hooks.
+Utilities for interpreting the contents of Python packages in IRI form.
+Assume to be legacy and soon to be removed.
 
-Copyright 2006-2014 Jeremy Kloth and Uche Ogbuji
+Copyright 2006-2018 Jeremy Kloth and Uche Ogbuji
 
-Note: PEP 302 is legacy at this point, and its ideas incorporated into Python's built-in import facilities
-
-See: https://docs.python.org/3/library/importlib.html#module-importlib
 """
+
+#Note: PEP 302 is legacy at this point, and its ideas incorporated into Python's built-in import facilities
+#See: https://docs.python.org/3/library/importlib.html#module-importlib
 
 import os
 import sys
@@ -23,6 +25,7 @@ __all__ = [
     # Resource Utilities
     'os_path_to_resource', 'normalize_resource', 'get_resource_filename',
     'get_resource_string', 'get_resource_stream', 'get_resource_last_modified',
+    'resource_to_uri', 'urlopen'
     ]
 
 # Indicate that the use of "special" names is handled in a "zip-safe" way.
@@ -38,6 +41,107 @@ if not __debug__:
     ZIP_SEARCH_ORDER.append('.pyc')
 
 from pkgutil import iter_importers, get_loader, find_loader, iter_modules, get_importer
+
+def resource_to_uri(package, resource):
+    """Return a PEP 302 pseudo-URL for the specified resource.
+
+    'package' is a Python module name (dot-separated module names) and
+    'resource' is a '/'-separated pathname.
+    """
+    provider, resource_name = normalize_resource(package, resource)
+    if provider.loader:
+        # Use a 'pkgdata' (PEP 302) pseudo-URL
+        segments = resource_name.split('/')
+        if not resource.startswith('/'):
+            dirname = provider.module_path[len(provider.zip_pre):]
+            segments[0:0] = dirname.split(os.sep)
+        path = '/'.join(map(percent_encode, segments))
+        uri = 'pkgdata://%s/%s' % (package, path)
+    else:
+        # Use a 'file' URL
+        filename = get_resource_filename(package, resource)
+        uri = os_path_to_uri(filename)
+    return uri
+
+class _pep302_handler(urllib.request.FileHandler):
+    """
+    A class to handler opening of PEP 302 pseudo-URLs.
+
+    The syntax for this pseudo-URL is:
+        url    := "pkgdata://" module "/" path
+        module := <Python module name>
+        path   := <'/'-separated pathname>
+
+    The "path" portion of the URL will be passed to the get_data() method
+    of the loader identified by "module" with '/'s converted to the OS
+    native path separator.
+    """
+    def pep302_open(self, request):
+        import mimetypes
+
+        # get the package and resource components
+        package = request.get_host()
+        resource = request.get_selector()
+        resource = percent_decode(re.sub('%2[fF]', '\\/', resource))
+
+        # get the stream associated with the resource
+        try:
+            stream = get_resource_stream(package, resource)
+        except EnvironmentError as error:
+            raise urllib.URLError(str(error))
+
+        # compute some simple header fields
+        try:
+            stream.seek(0, 2) # go to the end of the stream
+        except IOError:
+            data = stream.read()
+            stream = io.StringIO(data)
+            length = len(data)
+        else:
+            length = stream.tell()
+            stream.seek(0, 0) # go to the start of the stream
+        mtime = get_resource_last_modified(package, resource)
+        mtime = _formatdate(mtime)
+        mtype = mimetypes.guess_type(resource) or 'text/plain'
+        headers = ("Content-Type: %s\n"
+                   "Content-Length: %d\n"
+                   "Last-Modified: %s\n" % (mtype, length, mtime))
+        headers = email.message_from_string(headers)
+        return urllib.addinfourl(stream, headers, request.get_full_url())
+
+#Probably not necessary. Python 3.4 now handles data URLs
+
+_urlopener = None
+class _data_handler(urllib.request.BaseHandler):
+    """
+    A class to handle 'data' URLs.
+
+    The actual handling is done by urllib.URLopener.open_data() method.
+    """
+    def data_open(self, request):
+        global _urlopener
+        if _urlopener is None:
+            _urlopener = urllib.URLopener()
+        return _urlopener.open_data(self, request.get_full_url())
+
+
+_opener = None
+def urlopen(url, *args, **kwargs):
+    """
+    A replacement/wrapper for urllib.request.urlopen(), formerly urllib2.urlopen() in Python 1 & 2.
+
+    Simply calls iri_to_uri() on the given URL and passes the result
+    and all other args to urllib.request.urlopen().
+    """
+    global _opener
+    if _opener is None:
+        _opener = urllib.request.build_opener(_data_handler, _pep302_handler)
+
+    # work around urllib's intolerance for proper URIs, Unicode, IDNs
+    stream = _opener.open(iri_to_uri(url), *args, **kwargs)
+    stream.name = url
+    return stream
+
 
 class default_provider(object):
     """Resource provider for "classic" loaders"""

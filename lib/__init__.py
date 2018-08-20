@@ -1,4 +1,9 @@
 #amara3
+"""
+Core IRI/URI processing for Amara 3
+
+Copyright 2008-2018 Uche Ogbuji and Mike Brown
+"""
 
 import gettext
 gettext.install('amara3')
