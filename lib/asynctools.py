@@ -105,6 +105,11 @@ resp = go_async(access_site())
 
 class req_tracer:
     '''
+    aiohttp request tracer helper
+    Requires aiohttp version 3.0.
+    
+    See: https://docs.aiohttp.org/en/stable/tracing_reference.html#aiohttp-client-tracing-reference
+    
     >>> import aiohttp
     >>> from amara3.asynctools import go_async, req_tracer
     >>> rtimings = req_tracer()
