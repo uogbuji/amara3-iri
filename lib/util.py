@@ -29,7 +29,7 @@ def parse_requirement(r):
         REQUIREMENTS = [parse_requirement(r) for r in reqs]
     
     >>> from amara3.util import parse_requirement
-    >>> reqtxt = '''amara3-iri==3.0.0b3
+    >>> reqtxt = """amara3-iri==3.0.0b3
     ... pymarc
     ... rdflib
     ... mmh3
@@ -38,7 +38,7 @@ def parse_requirement(r):
     ... 
     ... #From Versa pyreqs.txt
     ... amara3-xml==3.0.0a6
-    ... '''
+    ... """
     >>> for line in reqtxt.splitlines():
     ...     parse_requirement(line)
     ... 
