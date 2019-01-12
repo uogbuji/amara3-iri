@@ -1,7 +1,8 @@
 import pytest
 import os, unittest, sys, codecs
 import warnings
-from amara3 import iri, irihelper, IriError
+from amara3 import iri, irihelper
+from amara3.iri import IriError
 
 # Test cases for BaseJoin() ==================================================
 # (base, relative, expected)

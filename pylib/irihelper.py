@@ -13,7 +13,7 @@ import email
 from email.utils import formatdate as _formatdate
 
 import amara3
-IriError = amara3.IriError
+IriError = amara3.iri.IriError
 from amara3.iri import *
 
 __all__ = [
