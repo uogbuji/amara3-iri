@@ -1,5 +1,7 @@
 scratch
 
+MANIFEST
+
 #----
 
 *.py[cod]
@@ -43,3 +45,4 @@ nosetests.xml
 # Other IDEs
 PyCharm
 .idea
+.vscode
