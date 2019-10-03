@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Highly recommend installing using `pip install .` not `python setup.py install`
+Highly recommend installing using `pip install -U .` not `python setup.py install`
 
 Uses pkgutil-style namespace package (Working on figuring out PEP 420)
 
