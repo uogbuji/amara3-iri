@@ -11,8 +11,8 @@ https://packaging.python.org/discussions/install-requires-vs-requirements/
 
 Reluctantly use setuptools for now to get install_requires & long_description_content_type
 
-$ python -c "import amara3; import amara3.iri; import amara3.uxml; import amara3.uxml.version; print(amara3.uxml.version.version_info)"
-('3', '0', '1')
+$ python -c "import amara3.version; print(amara3.version.version_info)"
+('3', '0', '3')
 '''
 
 import sys
@@ -24,7 +24,7 @@ PROJECT_DESCRIPTION = 'Module for handling Internationalized Resource Identifier
 PROJECT_LICENSE = 'License :: OSI Approved :: Apache Software License'
 PROJECT_AUTHOR = 'Uche Ogbuji'
 PROJECT_AUTHOR_EMAIL = 'uche@ogbuji.net'
-PROJECT_URL = 'https://github.com/uogbuji/amara3-xml'
+PROJECT_URL = 'https://github.com/uogbuji/amara3-iri'
 PACKAGE_DIR = {'amara3': 'pylib'}
 PACKAGES = [
     'amara3',
@@ -32,8 +32,6 @@ PACKAGES = [
 ]
 SCRIPTS = []
 
-#FIXME: Trim some of these as amara3-xml & versa setup.py files are updated to handle requirements
-#See: requirements.txt
 CORE_REQUIREMENTS = [
     'pytest',
 ]
@@ -60,7 +58,7 @@ __version__ = '.'.join(version_info)
 LONGDESC = '''Core of the Amara3 project, which provides a variety of data processing tools. Core is mostly a library for handling Internationalized Resource Identifiers (IRIs)
 '''
 
-LONGDESC_CTYPE = 'text/markdown',
+LONGDESC_CTYPE = 'text/markdown'
 
 
 setup(
