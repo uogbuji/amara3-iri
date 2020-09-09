@@ -1,11 +1,13 @@
 """
 Classes and functions related to IRI/URI processing, validation, resolution, etc.
 
-Copyright 2008-2018 Uche Ogbuji and Mike Brown
+Copyright 2008-2020 Uche Ogbuji and Mike Brown
 """
 
 __all__ = [
-  "IriError",
+  'IriError',
+  'I',
+
   # IRI tools
   "iri_to_uri",
   "nfc_normalize",
@@ -36,6 +38,8 @@ import email
 from string import ascii_letters
 from email.utils import formatdate as _formatdate
 from uuid import UUID, uuid1, uuid4
+
+from .irihelper import I
 
 # whether os_path_to_uri should treat "/" same as "\" in a Windows path
 WINDOWS_SLASH_COMPAT = True
@@ -335,7 +339,7 @@ def _init_split_uri_ref_pattern():
     return
 
 
-def split_uri_ref(uriref):
+def split_uri_ref(iri_ref):
     """
     Given a valid URI reference as a string, returns a tuple representing the
     generic URI components, as per RFC 3986 appendix B. The tuple's structure
@@ -350,7 +354,7 @@ def split_uri_ref(uriref):
         _init_split_uri_ref_pattern()
     # the pattern will match every possible string, so it's safe to
     # assume there's a groupdict method to call.
-    g = SPLIT_URI_REF_PATTERN.match(uriref).groupdict()
+    g = SPLIT_URI_REF_PATTERN.match(iri_ref).groupdict()
     scheme      = g['scheme']
     authority   = g['authority']
     path        = g['path']
@@ -359,14 +363,14 @@ def split_uri_ref(uriref):
     return (scheme, authority, path, query, fragment)
 
 
-def unsplit_uri_ref(uriRefSeq):
+def unsplit_uri_ref(iri_refSeq):
     """
     Given a sequence as would be produced by split_uri_ref(), assembles and
     returns a URI reference as a string.
     """
-    if not isinstance(uriRefSeq, (tuple, list)):
-        raise TypeError(_("sequence expected, got %s" % type(uriRefSeq)))
-    (scheme, authority, path, query, fragment) = uriRefSeq
+    if not isinstance(iri_refSeq, (tuple, list)):
+        raise TypeError(_("sequence expected, got %s" % type(iri_refSeq)))
+    (scheme, authority, path, query, fragment) = iri_refSeq
     uri = ''
     if scheme is not None:
         uri += scheme + ':'
@@ -627,16 +631,20 @@ def percent_decode(s, encoding='utf-8', decodable=None, errors='replace'):
     return ''.join(res)
 
 
-def absolutize(uriRef, baseUri, limit_schemes=None):
+def absolutize(iri_ref, base_iri, limit_schemes=None):
     """
-    Resolves a URI reference to absolute form, effecting the result of RFC
-    3986 section 5. The URI reference is considered to be relative to the
-    given base URI.
+    Resolves a IRI reference to absolute form, effecting the result of RFC
+    3986 section 5. The IRI reference is considered to be relative to the
+    given base IRI.
 
-    It is the caller's responsibility to ensure that the base URI matches
-    the absolute-URI syntax rule of RFC 3986, and that its path component
-    does not contain '.' or '..' segments if the scheme is hierarchical.
-    Unexpected results may occur otherwise.
+    iri_ref - relative URI to be resolved into absolute form. If already
+    absolute, it will be returned as is.
+
+    base_iri - base IRI for resolving iri_ref. If '' or None iri_ref will be
+    returned as is. base_iri should matche the absolute-URI syntax rule of
+    RFC 3986, and its path component should not contain '.' or '..' segments
+    if the scheme is hierarchical. If these are violated you may get unexpected
+    results.
 
     This function only conducts a minimal sanity check in order to determine
     if relative resolution is possible: it raises a ValueError if the base
@@ -683,23 +691,23 @@ def absolutize(uriRef, baseUri, limit_schemes=None):
     # This procedure is based on the pseudocode in RFC 3986 sec. 5.2.
     #
     # ensure base URI is absolute
-    if is_absolute(uriRef):
-        return uriRef
-    if not baseUri or not is_absolute(baseUri):
+    if not base_iri or is_absolute(iri_ref):
+        return iri_ref
+    if not base_iri or not is_absolute(base_iri):
         raise ValueError("Invalid base URI: {base} cannot be used to resolve "
                 "reference {ref}; the base URI must be absolute, not "
-                "relative.".format(base=baseUri, ref=uriRef))
-    if limit_schemes and get_scheme(baseUri) not in limit_schemes:
-        scheme = get_scheme(baseUri)
+                "relative.".format(base=base_iri, ref=iri_ref))
+    if limit_schemes and get_scheme(base_iri) not in limit_schemes:
+        scheme = get_scheme(base_iri)
         raise ValueError("The URI scheme {scheme} is not supported by resolver".format(scheme=scheme))
 
     # shortcut for the simplest same-document reference cases
-    if uriRef == '' or uriRef[0] == '#':
-        return baseUri.split('#')[0] + uriRef
+    if iri_ref == '' or iri_ref[0] == '#':
+        return base_iri.split('#')[0] + iri_ref
     # ensure a clean slate
     tScheme = tAuth = tPath = tQuery = None
     # parse the reference into its components
-    (rScheme, rAuth, rPath, rQuery, rFrag) = split_uri_ref(uriRef)
+    (rScheme, rAuth, rPath, rQuery, rFrag) = split_uri_ref(iri_ref)
     # if the reference is absolute, eliminate '.' and '..' path segments
     # and skip to the end
     if rScheme is not None:
@@ -709,7 +717,7 @@ def absolutize(uriRef, baseUri, limit_schemes=None):
         tQuery = rQuery
     else:
         # the base URI's scheme, and possibly more, will be inherited
-        (bScheme, bAuth, bPath, bQuery, bFrag) = split_uri_ref(baseUri)
+        (bScheme, bAuth, bPath, bQuery, bFrag) = split_uri_ref(base_iri)
         # if the reference is a net-path, just eliminate '.' and '..' path
         # segments; no other changes needed.
         if rAuth is not None:
@@ -919,7 +927,7 @@ def remove_dot_segments(path):
     return leading_slash * '/' + '/'.join(keepers)
 
 
-def normalize_case(uriRef, doHost=False):
+def normalize_case(iri_ref, doHost=False):
     """
     Returns the given URI reference with the case of the scheme,
     percent-encoded octets, and, optionally, the host, all normalized,
@@ -931,14 +939,14 @@ def normalize_case(uriRef, doHost=False):
     would be provided by the split_uri_ref function. The return value will
     be a string or tuple.
     """
-    if not isinstance(uriRef, (tuple, list)):
-        uriRef = split_uri_ref(uriRef)
+    if not isinstance(iri_ref, (tuple, list)):
+        iri_ref = split_uri_ref(iri_ref)
         tup = None
     else:
         tup = True
     # normalize percent-encoded octets
     newRef = []
-    for component in uriRef:
+    for component in iri_ref:
         if component:
             newRef.append(re.sub('%([0-9a-f][0-9a-f])',
                           lambda m: m.group(0).upper(), component))
@@ -1063,7 +1071,7 @@ def public_id_to_urn(publicid):
 #
 
 SCHEME_PATTERN = re.compile(r'([a-zA-Z][a-zA-Z0-9+\-.]*):')
-def get_scheme(uriRef):
+def get_scheme(iri_ref):
     """
     Obtains, with optimum efficiency, just the scheme from a URI reference.
     Returns a string, or if no scheme could be found, returns None.
@@ -1075,19 +1083,19 @@ def get_scheme(uriRef):
     #   urllib.splittype()[0] took 1.5s always;
     #   Ft.Lib.Uri.split_uri_ref()[0] took 2.5s always;
     #   urlparse.urlparse()[0] took 3.5s always.
-    m = SCHEME_PATTERN.match(uriRef)
+    m = SCHEME_PATTERN.match(iri_ref)
     if m is None:
         return None
     else:
         return m.group(1)
 
 
-def strip_fragment(uriRef):
+def strip_fragment(iri_ref):
     """
     Returns the given URI or URI reference with the fragment component, if
     any, removed.
     """
-    return split_fragment(uriRef)[0]
+    return split_fragment(iri_ref)[0]
 
 
 def is_absolute(identifier):
@@ -1553,7 +1561,7 @@ def path_resolve(paths):
     return resolved
 
 
-def basejoin(base, uriRef):
+def basejoin(base, iri_ref):
     """
     Merges a base URI reference with another URI reference, returning a
     new URI reference.
@@ -1562,7 +1570,7 @@ def basejoin(base, uriRef):
     are reversed, and it accepts any URI reference (even a relative URI)
     as the base URI. If the base has no scheme component, it is
     evaluated as if it did, and then the scheme component of the result
-    is removed from the result, unless the uriRef had a scheme. Thus, if
+    is removed from the result, unless the iri_ref had a scheme. Thus, if
     neither argument has a scheme component, the result won't have one.
 
     This function is named basejoin because it is very much like
@@ -1580,12 +1588,12 @@ def basejoin(base, uriRef):
     too, so it is not advisable to use it.
     """
     if is_absolute(base):
-        return absolutize(uriRef, base)
+        return absolutize(iri_ref, base)
     else:
         dummyscheme = 'basejoin'
-        res = absolutize(uriRef, '%s:%s' % (dummyscheme, base))
-        if is_absolute(uriRef):
-            # scheme will be inherited from uriRef
+        res = absolutize(iri_ref, '%s:%s' % (dummyscheme, base))
+        if is_absolute(iri_ref):
+            # scheme will be inherited from iri_ref
             return res
         else:
             # no scheme in, no scheme out
